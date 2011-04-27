@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010  2Wire, Inc.
+ * Copyright (C) 2010  Pace Plc
  * All Rights Reserved.
  *
  * Copyright (c) 2009, Sun Microsystems, Inc.
@@ -1156,6 +1156,10 @@ ar_clnt_create(ar_ioctx_t ioctx, const char *host, const arpcprog_t prog,
 	ar_client_t *cl = NULL;
 	int err;
 
+	RPCTRACE(ioctx, 2,
+		 "ar_clnt_create(): netid %s, prog %x, ver %x\n",
+		 netid, prog, ver);
+	
 	if (!ioctx || !host || !retp) {
 		if (errp) {
 			errp->cf_stat = ARPC_ERRNO;
@@ -1244,6 +1248,10 @@ ar_clnt_tli_create(ar_ioctx_t ioctx, const char *netid,
 	ar_sockinfo_t si;
 	ar_netid_t *info;
 
+	RPCTRACE(ioctx, 2,
+		 "ar_clnt_tli_create(): netid %s, prog %x, ver %x\n",
+		 netid, prog, ver);
+	
 	stat = ARPC_SUCCESS;
 
 	if (!svcaddr || !retp || !ioctx) {
@@ -1275,7 +1283,7 @@ ar_clnt_tli_create(ar_ioctx_t ioctx, const char *netid,
 	switch (info->an_semantics) {
 	case AR_SEM_COTS:
 		err = ar_vcd_lookup(ioctx, netid, &drv);
-		if (err != 0) {
+		 if (err != 0) {
 			stat = ARPC_UNKNOWNPROTO;
 			goto error;
 		}
@@ -1544,6 +1552,11 @@ ar_clnt_call(ar_client_t *rh, arpcproc_t proc, axdrproc_t xargs,
 	while (!state.done) {
 		err = ar_ioctx_loop(ioctx);
 		if (err != 0) {
+			if (err == EINTR) {
+				continue;
+			}
+
+			(*rh->cl_ops->cl_cancel)(rh, cco); 
 			state.result.re_status = ARPC_SYSTEMERROR;
 			state.result.re_errno = err;
 			goto error;
@@ -1854,6 +1867,7 @@ ar_clnt_destroy(ar_client_t *cl)
 		return;
 	}
 
+	RPCTRACE(cl->cl_ioctx, 2, "ar_clnt_destroy(): cl %p\n", cl);
 	(*cl->cl_ops->cl_destroy)(cl);
 }
 

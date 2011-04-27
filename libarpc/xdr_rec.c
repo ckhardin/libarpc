@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010  2Wire, Inc.
+ * Copyright (C) 2010  Pace Plc
  * All Rights Reserved.
  *
  * Copyright (c) 2009, Sun Microsystems, Inc.
@@ -49,11 +49,11 @@
 
 #include <sys/types.h>
 #include <netinet/in.h>
-#include <err.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <err.h>
 #include <libarpc/arpc.h>
 #include <libarpc/types.h>
 #include <libarpc/axdr.h>
@@ -727,7 +727,7 @@ flush_out(axdr_state_t *xdrs, RECSTREAM *rstrm, bool_t eor)
 	u_int32_t	len;
 	size_t		bufsize;
 	int		_off = 0;
-	int		err;
+	int		ret;
 	bool_t		cleanup;
 
 	rval = axdr_async_setup(xdrs, &flush_out, &cleanup, &_off,
@@ -746,10 +746,10 @@ flush_out(axdr_state_t *xdrs, RECSTREAM *rstrm, bool_t eor)
 	rval = AXDR_DONE;
 	while (_off < len) {
 		bufsize = len - _off;
-		err = (*(rstrm->writeit))(rstrm->tcp_handle, 
+		ret = (*(rstrm->writeit))(rstrm->tcp_handle, 
 					  &rstrm->out_base[_off], &bufsize);
-		if (err != 0) {
-			if (err == EAGAIN) {
+		if (ret != 0) {
+			if (ret == EAGAIN) {
 				rval = AXDR_WAITING;
 			} else {
 				rval = AXDR_ERROR;
@@ -781,7 +781,7 @@ get_input_bytes(RECSTREAM *rstrm, int len)
 	size_t bufsize;
 	size_t current;
 	u_int32_t i;
-	int err;
+	int ret;
 	char *limit;
 	char *where;
 
@@ -822,9 +822,9 @@ get_input_bytes(RECSTREAM *rstrm, int len)
 			bufsize = (size_t)(rstrm->in_size - i - current);
 		}
 
-		err = (*(rstrm->readit))(rstrm->tcp_handle, where, &bufsize); 
-		if (err != 0) {
-			if (err == EAGAIN) {
+		ret = (*(rstrm->readit))(rstrm->tcp_handle, where, &bufsize); 
+		if (ret != 0) {
+			if (ret == EAGAIN) {
 				return AXDR_WAITING;
 			} else {
 				return AXDR_ERROR;

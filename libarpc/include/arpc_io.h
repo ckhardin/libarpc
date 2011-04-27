@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010  2Wire, Inc.
+ * Copyright (C) 2010  Pace Plc
  * All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -9,7 +9,7 @@
  * - Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * - Neither the name of 2Wire, Inc. nor the names of its
+ * - Neither the name of Pace Plc nor the names of its
  *   contributors may be used to endorse or promote products derived
  *   from this software without specific prior written permission.
  *
@@ -30,6 +30,7 @@
 #define	_LIBARPC_ARPC_IO_H
 
 #include <sys/cdefs.h>
+#include <event.h>
 
 /* SOME legacy defines:
  *
@@ -97,11 +98,8 @@ extern int ar_vcd_set_listen(ar_vcd_t vcd, ar_vcd_listen_t);
 
 struct ar_ioctx_s;
 struct ar_ioep_s;
-struct ar_timer_s;
 typedef struct ar_ioctx_s *ar_ioctx_t;	/* set of endpoints */
 typedef struct ar_ioep_s *ar_ioep_t;		/* single endpoint */
-typedef void (*ar_timer_cb_t)(void *);	/* timer callback routine */
-typedef uint64_t ar_timer_t;
 extern int ar_ioctx_create(ar_ioctx_t *ioctxp);
 
 extern int ar_ioctx_add_vcd(ar_ioctx_t ioctx, ar_vcd_t vcd, 
@@ -117,11 +115,13 @@ extern int ar_ioctx_pfd_dispatch(ar_ioctx_t ioctx,
 extern int ar_ioctx_pfd_timeout(ar_ioctx_t ioctx);
 extern int ar_ioctx_loop(ar_ioctx_t ioctx);
 extern int ar_ioctx_run(ar_ioctx_t ioctx);
+extern int ar_ioctx_event_setup(ar_ioctx_t ioctx, struct event_base *evbase);
+extern int ar_ioctx_event_cleanup(ar_ioctx_t ioctx);
 extern void ar_ioctx_destroy(ar_ioctx_t ioctx);
+extern void ar_ioctx_dump(ar_ioctx_t ioctx, FILE *fp);
 extern void ar_ioep_destroy(ar_ioep_t ep);
-extern ar_timer_t ar_ioctx_timer_add(ar_ioctx_t ioctx, int timeout, 
-				ar_timer_cb_t fn, void *fn_param);
-extern int ar_ioctx_timer_cancel(ar_ioctx_t ioctx, ar_timer_t timer);
+
+extern int ar_ioctx_set_verbose(ar_ioctx_t ioctx, int level);
 
 /**
  * Lookup correct connection oriented transport driver

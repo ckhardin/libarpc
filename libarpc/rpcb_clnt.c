@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010  2Wire, Inc.
+ * Copyright (C) 2010  Pace Plc
  * All Rights Reserved.
  *
  * Copyright (c) 2009, Sun Microsystems, Inc.
@@ -908,6 +908,9 @@ getclnthandle(ar_ioctx_t ioctx, const char *host, const char *netid,
 	while (!done.done) {
 		err = ar_ioctx_loop(ioctx);
 		if (err != 0) {
+			if (err == EINTR) {
+				continue;
+			}
 			arpcb_clnt_destroy(rpcb);
 			break;
 		}

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010  2Wire, Inc.
+ * Copyright (C) 2010  Pace Plc
  * All Rights Reserved.
  *
  * Copyright (c) 2009, Sun Microsystems, Inc.

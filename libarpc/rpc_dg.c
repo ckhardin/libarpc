@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010  2Wire, Inc.
+ * Copyright (C) 2010  Pace Plc
  * All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -9,7 +9,7 @@
  * - Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * - Neither the name of 2Wire, Inc. nor the names of its
+ * - Neither the name of Pace Plc nor the names of its
  *   contributors may be used to endorse or promote products derived
  *   from this software without specific prior written permission.
  *
@@ -46,6 +46,8 @@
 #include <string.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <event.h>
+#include <libtimeutil/timeutil.h>
 #include <libarpc/arpc.h>
 #include "rpc_com.h"
 
@@ -108,7 +110,7 @@ static int dg_sendmsg(ar_ioep_t ep, arpc_msg_t *, ar_svc_call_obj_t);
 static int dg_add_client(ar_ioep_t ep, const arpcprog_t, const arpcvers_t,
 			 ar_clnt_attr_t *, arpc_err_t *errp,
 			 ar_client_t **);
-
+static int dg_event_setup(ar_ioep_t ep, struct event_base *evbase);
 
 static int clnt_dg_call(ar_client_t *, arpcproc_t, axdrproc_t, void *, 
 			bool_t inplace, axdrproc_t, void *, int, 
@@ -128,7 +130,8 @@ static ep_driver_t dg_ep_driver = {
 	dg_dispatch,
 	dg_destroy,
 	dg_sendmsg,
-	dg_add_client
+	dg_add_client,
+	dg_event_setup
 };
 
 struct clnt_ops dg_clnt_ops = {
@@ -496,6 +499,13 @@ dg_ioep_destroy(ar_ioep_t ioep)
 		ioep->iep_ioctx = NULL;
 	}
 
+	/* delete and free up monitored event */
+	if (ioep->iep_event) {
+		event_del(ioep->iep_event);
+		event_free(ioep->iep_event);
+		ioep->iep_event = NULL;
+	}
+	
 	/* close the fd immediately */
 	if (dep->dep_fd >= 0) {
 		close(dep->dep_fd);
@@ -1394,6 +1404,167 @@ dg_add_client(ar_ioep_t ep, const arpcprog_t prog, const arpcvers_t vers,
 	return err;
 }
 
+/* dg_event_cb() is a callback function from the event.
+ * it is very similar to dg_dispatch().
+ */
+static void
+dg_event_cb(evutil_socket_t fd, short events, void *arg)
+{
+	dge_call_t		*dgc;
+	ar_svc_call_obj_t	sco;
+	ar_svc_call_obj_t	sconext;
+	ar_ioep_t               ep;
+	dg_ioep_t		*dep;
+	dge_sco_t		*dgs;
+	ar_ioctx_t		ioctx;
+	ar_clnt_call_obj_t	cco;
+	ar_clnt_call_obj_t	cconext;
+	struct timespec		diff;
+	struct timespec		cur;
+	struct timespec		zero;
+	arpc_err_t		result;
+
+	ep = (ar_ioep_t)arg;
+
+	if (!ep || ep->iep_type != IOEP_TYPE_DG) {
+		return;
+	}
+
+	dep = (dg_ioep_t *)ep->iep_drv_arg;
+	if (!dep) {
+		return;
+	}
+
+	if (dep->dep_sys_error > 0) {
+		dg_syserror(dep, dep->dep_sys_error);
+		return;
+	}
+
+	ioctx = ep->iep_ioctx;
+	if (dep->dep_fd < 0 || !ioctx) {
+		dg_syserror(dep, EINVAL);
+		return;
+	}
+
+	if ((ep->iep_flags & IEP_FLG_DESTROY) != 0) {
+		goto cleanup;
+	}
+
+	dg_ioep_bumpref(ep);
+
+	if (events & EV_READ) {
+		dg_read(ioctx, dep, ep);
+		if ((ep->iep_flags & IEP_FLG_DESTROY) != 0) {
+			goto cleanup;
+		}
+	}
+
+	/* dispatch timeouts:
+	 * 1. call timeouts
+	 * 2. svc response timers
+	 */
+	clock_gettime(CLOCK_MONOTONIC, &cur);
+	zero.tv_sec = 0;
+	zero.tv_nsec = 0;
+	
+	cco = TAILQ_FIRST(&ep->iep_clnt_calls);
+	if (cco) {
+		dg_cco_bumpref(cco);
+	}
+
+	for (; cco; cco = cconext) {
+		cconext = TAILQ_NEXT(cco, cco_listent);
+		if (cconext) {
+			dg_cco_bumpref(cconext);
+		}
+		if (cco->cco_state != CCO_STATE_PENDING &&
+		    cco->cco_state != CCO_STATE_RUNNING) {
+			dg_cco_dropref(cco);
+			continue;
+		}
+
+		tspecadd(&cco->cco_timeout, &cco->cco_start, &diff);
+		tspecsub(&diff, &cur, &diff);
+		if (tspeccmp(&diff, &zero, >)) {
+			dgc = (dge_call_t *)cco->cco_lower;
+			tspecsub(&dgc->dgc_retran_limit, &cur, &diff);
+			if (tspeccmp(&diff, &zero, <=)) {
+				dg_retransmit(cco);
+			}
+			dg_cco_dropref(cco);
+			continue;
+		}
+
+		cco->cco_rpc_err.re_status = ARPC_TIMEDOUT;
+		if ((cco->cco_flags & CCO_FLG_USRREF_DROPPED) == 0) {
+			/* steal back usr reference, after notify */
+			cco->cco_flags |= CCO_FLG_USRREF_DROPPED;
+			result = cco->cco_rpc_err;
+			(*cco->cco_cb)(cco, cco->cco_cb_arg, &result, NULL);
+			/* actually drop usr ref */
+			dg_cco_dropref(cco);
+		}
+		dg_cco_destroy(cco);
+		dg_cco_dropref(cco);
+	}
+
+	for (sco = TAILQ_FIRST(&ep->iep_svc_cache); sco; sco = sconext) {
+		sconext = TAILQ_NEXT(sco, sco_listent);
+		dgs = (dge_sco_t *)sco->sco_lower;
+		assert(sco->sco_state == SCO_STATE_CACHED);
+		assert(dgs != NULL);
+
+		tspecsub(&dgs->dgs_cache_timeout, &cur, &diff);
+		if (tspeccmp(&diff, &zero, <=)) {
+			dg_sco_destroy(sco);
+		}
+	}
+
+ cleanup:
+	dg_ioep_dropref(ep);
+}
+
+int event_add_use_ts(struct event *, const struct timespec *);
+static int
+dg_event_setup(ar_ioep_t ep, struct event_base *evbase)
+{
+	struct pollfd pfd;
+	struct event *ev;
+	short events;
+	struct timespec ts_timeout;
+	int timeout;
+
+	if (!ep || ep->iep_type != IOEP_TYPE_DG) {
+		return EINVAL;
+	}
+
+	/* call poll_setup routine for the fd and events */
+	dg_setup(ep, &pfd, &timeout);
+
+	clock_gettime(CLOCK_MONOTONIC, &ts_timeout);
+	tu_tsaddmsecs(&ts_timeout, timeout);
+	
+	/* convert pollfd's events into libevent events */
+	events = EV_PERSIST;
+	if (pfd.events & POLLIN) {
+		events |= EV_READ;
+	}
+	if (pfd.events & POLLOUT) {
+		events |= EV_WRITE;
+	}
+
+	/* create and setup event object */
+	ev = event_new(evbase, (evutil_socket_t)pfd.fd,
+		       events, dg_event_cb, (void *)ep);
+	/* monitor the event */
+	event_add_use_ts(ev, (const struct timespec *)&ts_timeout);
+
+	ep->iep_event = ev;
+
+	return 0;
+	
+}
+	
 static int
 clnt_dg_call(ar_client_t *cl, arpcproc_t proc, axdrproc_t xargs, void *argsp, 
 	     bool_t inplace, axdrproc_t xres, void *resp, int ressize, 

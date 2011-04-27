@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010  2Wire, Inc.
+ * Copyright (C) 2010  Pace Plc
  * All Rights Reserved.
  *
  * Copyright (c) 2009, Sun Microsystems, Inc.
@@ -192,6 +192,8 @@ ar_svc_tli_create(ar_ioctx_t ioctx, const char *netid,
 		goto error;
 	}
 
+	RPCTRACE(ioctx, 1, "ar_svc_tli_create() netid %s\n", netid);
+	
 	err  = ar_str2sockinfo(ioctx, netid, &si);
 	err |= ar_str2netid(ioctx, netid, &info);
 	if (err != EOK) {

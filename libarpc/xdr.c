@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010  2Wire, Inc.
+ * Copyright (C) 2010  Pace Plc
  * All Rights Reserved.
  *
  * Copyright (c) 2009, Sun Microsystems, Inc.
@@ -1040,7 +1040,9 @@ axdr_string(axdr_state_t *xdrs, char **cpp, u_int maxsize)
 		/* FALLTHROUGH */
 	case AXDR_ENCODE:
 	case AXDR_ENCODE_ASYNC:
-		size = strlen(sp);
+		if (sp != NULL) {
+			size = strlen(sp);
+		}
 		break;
 	case AXDR_DECODE:
 	case AXDR_DECODE_ASYNC:

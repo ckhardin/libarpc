@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010  2Wire, Inc.
+ * Copyright (C) 2010  Pace Plc
  * All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -9,7 +9,7 @@
  * - Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * - Neither the name of 2Wire, Inc. nor the names of its
+ * - Neither the name of Pace Plc nor the names of its
  *   contributors may be used to endorse or promote products derived
  *   from this software without specific prior written permission.
  *
@@ -44,20 +44,14 @@
 #include <fcntl.h>
 #include <time.h>
 #include <libarpc/arpc.h>
+#include <event.h>
 
 #include "rpc_com.h"
-
-static int ar_ioctx_timer_init(ar_ioctx_t ioctx);
-static int ar_ioctx_timer_destroy(ar_ioctx_t ioctx);
-static int ar_ioctx_timer_pollsetup(ar_ioctx_t ioctx, struct pollfd *pfd,
-				    int *timeoutp);
-static int ar_ioctx_timer_dispatch(ar_ioctx_t ioctx);
 
 int
 ar_ioctx_create(ar_ioctx_t *ioctxp)
 {
 	ar_ioctx_t ret;
-	int err;
 
 	if (!ioctxp) {
 		return EINVAL;
@@ -71,12 +65,6 @@ ar_ioctx_create(ar_ioctx_t *ioctxp)
 	TAILQ_INIT(&ret->icx_ep_list);
 	TAILQ_INIT(&ret->icx_svc_list);
 	TAILQ_INIT(&ret->icx_drv_list);
-
-	err = ar_ioctx_timer_init(ret);
-	if (err != 0) {
-		free(ret);
-		return err;
-	}
 
 	*ioctxp = ret;
 	return 0;
@@ -107,203 +95,7 @@ ar_ioctx_destroy(ar_ioctx_t ioctx)
 		mem_free(drv, sizeof(*drv));
 	}
 
-	ar_ioctx_timer_destroy(ioctx);
-
 	free(ioctx);
-}
-
-
-static int
-ar_ioctx_timer_init(ar_ioctx_t ioctx)
-{
-	int flags;
-
-	if (!ioctx) {
-		return EINVAL;
-	}
-
-	TAILQ_INIT(&ioctx->icx_timer.timer_list);
-
-	if (pipe(ioctx->icx_timer.timer_fd) != 0) {
-		return errno;
-	}
-
-	flags = fcntl(ioctx->icx_timer.timer_fd[0], F_GETFL, 0);
-	flags |= O_NONBLOCK|O_NDELAY;
-	fcntl(ioctx->icx_timer.timer_fd[0], F_SETFL, flags);
-	fcntl(ioctx->icx_timer.timer_fd[0], F_SETFD, FD_CLOEXEC);
-	flags = fcntl(ioctx->icx_timer.timer_fd[1], F_GETFL, 0);
-	flags |= O_NONBLOCK|O_NDELAY;
-	fcntl(ioctx->icx_timer.timer_fd[1], F_SETFL, flags);
-	fcntl(ioctx->icx_timer.timer_fd[1], F_SETFD, FD_CLOEXEC);
-	ioctx->icx_timer.next_id = 1;
-	return 0;
-}
-
-static int
-ar_ioctx_timer_destroy(ar_ioctx_t ioctx)
-{
-	struct ar_timer_s *timer;
-
-	if (!ioctx) {
-		return EINVAL;
-	}
-
-	while ((timer = TAILQ_FIRST(&ioctx->icx_timer.timer_list)) != NULL) {
-		TAILQ_REMOVE(&ioctx->icx_timer.timer_list, timer, listent);
-		free(timer);
-	}
-	close(ioctx->icx_timer.timer_fd[0]);
-	close(ioctx->icx_timer.timer_fd[1]);
-	return 0;
-}
-
-int
-ar_ioctx_timer_cancel(ar_ioctx_t ioctx, ar_timer_t timer)
-{
-	struct ar_timer_s *entry;
-
-	if (!ioctx || !timer) {
-		return EINVAL;
-	}
-
-	TAILQ_FOREACH(entry, &ioctx->icx_timer.timer_list, listent) {
-		if (entry->id == timer) {
-			/* only cancel timer if we're not handling it */
-			if (!entry->in_progress) {
-				TAILQ_REMOVE(&ioctx->icx_timer.timer_list,
-					     entry, listent);
-				free(entry);
-				return 0;
-			}
-		}
-	}
-
-	return EINVAL;
-}
-
-ar_timer_t
-ar_ioctx_timer_add(ar_ioctx_t ioctx, int timeout, ar_timer_cb_t fn,
-		   void *fn_param)
-{
-	struct ar_timer_s *timer;
-	struct ar_timer_s *entry;
-	struct timespec ts;
-	char buf = 0x1;
-	bool_t inserted;
-
-	if (!ioctx) {
-		return 0;
-	}
-
-	timer = (struct ar_timer_s *) malloc(sizeof(struct ar_timer_s));
-	if (!timer) {
-		return 0;
-	}
-	memset(timer, 0, sizeof(struct ar_timer_s));
-
-	clock_gettime(CLOCK_MONOTONIC, &ts);
-	ts.tv_sec += timeout / 1000;
-	ts.tv_nsec += (timeout % 1000) * 1000000;
-	if (ts.tv_nsec >= 1000000000) {
-		ts.tv_sec++;
-		ts.tv_nsec -= 1000000000;
-	}
-	timer->cb_fn = fn;
-	timer->cb_param = fn_param;
-	timer->timeout = ts;
-	timer->in_progress = false;
-	/* next_id should never run out */
-	timer->id = ioctx->icx_timer.next_id++;
-	inserted = false;
-
-
-	TAILQ_FOREACH(entry, &ioctx->icx_timer.timer_list, listent) {
-		if (ts.tv_sec < entry->timeout.tv_sec ||
-		    (ts.tv_sec == entry->timeout.tv_sec &&
-		     ts.tv_nsec < entry->timeout.tv_nsec)) {
-			TAILQ_INSERT_BEFORE(entry, timer, listent);
-			inserted = true;
-			break;
-		}
-	}
-	if (!inserted) {
-		TAILQ_INSERT_TAIL(&ioctx->icx_timer.timer_list,
-				  timer, listent);
-	}
-
-	/* write to pipe to trigger poll return */
-	write(ioctx->icx_timer.timer_fd[1], &buf, 1);
-
-	return timer->id;
-}
-
-static int
-ar_ioctx_timer_pollsetup(ar_ioctx_t ioctx, struct pollfd *pfd, int *timeoutp)
-{
-	struct ar_timer_s *timer;
-	struct timespec ts;
-	struct timespec ts_now;
-
-	if (!ioctx || !pfd || !timeoutp) {
-		return EINVAL;
-	}
-
-
-	pfd->fd = ioctx->icx_timer.timer_fd[0];
-	pfd->events = POLLIN | POLLOUT;
-
-	timer = TAILQ_FIRST(&ioctx->icx_timer.timer_list);
-	if (!timer) {
-		*timeoutp = -1;
-		return 0;
-	}
-
-	clock_gettime(CLOCK_MONOTONIC, &ts_now);
-
-	ts = timer->timeout;
-	tspecsub(&timer->timeout, &ts_now, &ts);
-
-	if (ts.tv_sec < 0 || (ts.tv_sec == 0 && ts.tv_nsec == 0)) {
-		/* trigger timer now */
-		*timeoutp = 0;
-	} else {
-		*timeoutp =  (int)(ts.tv_sec * 1000 + ts.tv_nsec / 1000000);
-	}
-	return 0;
-}
-
-static int
-ar_ioctx_timer_dispatch(ar_ioctx_t ioctx)
-{
-	struct ar_timer_s *timer;
-	struct timespec ts;
-	struct timespec ts_timer;
-	char buf[2];
-	if (!ioctx) {
-		return EINVAL;
-	}
-
-	clock_gettime(CLOCK_MONOTONIC, &ts);
-	/* empty pipe */
-	while (read(ioctx->icx_timer.timer_fd[0], buf, 1) > 0);
-
-	while ((timer = TAILQ_FIRST(&ioctx->icx_timer.timer_list))) {
-		ts_timer = timer->timeout;
-
-		if (!((ts_timer.tv_sec < ts.tv_sec) ||
-		      ((ts_timer.tv_sec == ts.tv_sec) &&
-		       (ts_timer.tv_nsec <= ts.tv_nsec)))) {
-			break;
-		}
-		timer->in_progress = true;
-		if (timer->cb_fn) {
-			(*timer->cb_fn)(timer->cb_param);
-		}
-		TAILQ_REMOVE(&ioctx->icx_timer.timer_list, timer, listent);
-		free(timer);
-	}
-	return EOK;
 }
 
 int
@@ -386,8 +178,6 @@ ar_ioctx_pfd_setup(ar_ioctx_t ioctx, struct pollfd *pfds,
 	size = *countp;
 	i = 0;
 
-	ar_ioctx_timer_pollsetup(ioctx, &pfds[i++], &min_timeout);
-
 	TAILQ_FOREACH(ep, &ioctx->icx_ep_list, iep_listent) {
 		if (i >= size) {
 			return EINVAL;
@@ -419,10 +209,7 @@ ar_ioctx_pfd_dispatch(ar_ioctx_t ioctx, struct pollfd *pfds, int count)
 		return EINVAL;
 	}
 
-	i = 1;
-	/* process timers first */
-	ar_ioctx_timer_dispatch(ioctx);
-
+	i = 0;
 	for (ep = TAILQ_FIRST(&ioctx->icx_ep_list); ep; ep = ep_next) {
 		if (i >= count) {
 			break;
@@ -600,6 +387,80 @@ ar_ioctx_loop(ar_ioctx_t ioctx)
 	return err;
 }
 
+int
+ar_ioctx_event_setup(ar_ioctx_t ioctx, struct event_base *evbase)
+{
+	ar_ioep_t ep;
+
+	RPCTRACE(ioctx, 2, "ar_ioctx_event_setup(%p)\n", ioctx);
+	ep = TAILQ_FIRST(&ioctx->icx_ep_list);
+	while (ep != NULL) {
+		if (!ep->iep_event) {
+			RPCTRACE(ioctx, 3, "event setup() ioep %p\n", ep);
+			/* the event hasn't been setup yet. */
+			(*ep->iep_drv->epd_event_setup)(ep, evbase);
+		}
+		ep = TAILQ_NEXT(ep, iep_listent);
+	}
+	return 0;
+}
+
+int
+ar_ioctx_event_cleanup(ar_ioctx_t ioctx)
+{
+	ar_ioep_t ep;
+
+	ep = TAILQ_FIRST(&ioctx->icx_ep_list);
+	while (ep != NULL) {
+		if (ep->iep_event) {
+			event_del(ep->iep_event);
+			event_free(ep->iep_event);
+			ep->iep_event = NULL;
+		}
+		ep = TAILQ_NEXT(ep, iep_listent);
+	}
+	return 0;
+}
+
+int
+ar_ioctx_set_verbose(ar_ioctx_t ioctx, int level)
+{
+	if (!ioctx) {
+		return EINVAL;
+	}
+	
+	ioctx->icx_verbose = level;
+	return 0;
+}
+
+void
+ar_ioctx_dump(ar_ioctx_t ioctx, FILE *fp)
+{
+	ar_ioep_t ioep;
+	ar_client_t *cl;
+	ar_clnt_call_obj_t cco;
+
+	if (!ioctx || !fp) {
+		return;
+	}
+
+	fprintf(fp, "ioctx(%p)\n", ioctx);
+	fprintf(fp, "  verbose=%u\n", ioctx->icx_verbose);
+	TAILQ_FOREACH(ioep, &ioctx->icx_ep_list, iep_listent) {
+		fprintf(fp, "  ioep(%p)\n", ioep);
+		fprintf(fp, "\tiep_type=%u\n", ioep->iep_type);
+		fprintf(fp, "\tiep_refcnt=%u\n", ioep->iep_refcnt);
+		fprintf(fp, "\tiep_flags=%x\n", ioep->iep_flags);
+		TAILQ_FOREACH(cl, &ioep->iep_client_list, cl_listent) {
+			fprintf(fp, "\t  cl(%p)\n", cl);
+		}
+		TAILQ_FOREACH(cco, &ioep->iep_clnt_calls, cco_listent) {
+			fprintf(fp, "\t  cco(%p)\n", cco);
+		}
+	}
+	return;
+}
+
 void
 ar_ioep_destroy(ar_ioep_t ep)
 {
@@ -674,6 +535,7 @@ ar_ioep_cleanup(ar_ioep_t ep)
 		ep->iep_debug_prefix = NULL;
 	}
 }
+
 
 /*
  * Local Variables:

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010  2Wire, Inc.
+ * Copyright (C) 2010  Pace Plc
  * All Rights Reserved.
  *
  * Copyright (c) 2009, Sun Microsystems, Inc.
@@ -160,7 +160,7 @@ xdrstdio_getpos(axdr_state_t *xdrs)
 static axdr_ret_t
 xdrstdio_setpos(axdr_state_t *xdrs, off_t pos)
 { 
-	return ((fseek((FILE *)xdrs->x_private, (long)pos, 0) < 0) ?
+	return ((fseek((FILE *)xdrs->x_private, (long)pos, SEEK_SET) < 0) ?
 		AXDR_ERROR : AXDR_DONE);
 }
 

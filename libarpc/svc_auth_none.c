@@ -32,7 +32,7 @@
   NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
   SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-  $Id: //depot/nmd/import/libarpc/libarpc/svc_auth_none.c#1 $
+  $Id: //depot/nmd/gw-head/lib/libarpc/svc_auth_none.c#1 $
  */
 
 #include <rpc/rpc.h>

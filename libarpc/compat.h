@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010  2Wire, Inc.
+ * Copyright (C) 2010  Pace Plc
  * All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -42,8 +42,12 @@
 
 #include "config.h"
 
+#ifndef ntoh32
 #define ntoh32(_val)  ntohl(_val)
+#endif
+#ifndef hton32
 #define hton32(_val)  htonl(_val)
+#endif
 
 #ifndef HAVE_STRLCAT
 size_t   strlcat(char *, const char *, size_t);

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010  2Wire, Inc.
+ * Copyright (C) 2010  Pace Plc
  * All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -9,7 +9,7 @@
  * - Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * - Neither the name of 2Wire, Inc. nor the names of its
+ * - Neither the name of Pace Plc nor the names of its
  *   contributors may be used to endorse or promote products derived
  *   from this software without specific prior written permission.
  *
@@ -776,14 +776,16 @@ vcd_tls_conn(void *vc, const arpc_addr_t *na, arpc_createerr_t *errp)
 static int
 vcd_get_ssl_error(char *errbuf, size_t errlen)
 {
-	char *fatal = NULL;
-	int off = 0;
-	int errqueue = 0;
+	char *fatal;
+	int off;
+	int errqueue;
 	int errnum;
 	int lib;
 	int func;
-	int err;
- 
+
+	fatal = NULL;
+	off = 0;
+	errqueue = 0;
 	memset(errbuf, 0, errlen); 
  
 	/* ERR_get_error() returns the earliest error in queue */
@@ -806,11 +808,11 @@ vcd_get_ssl_error(char *errbuf, size_t errlen)
 		} else if (lib == ERR_LIB_SSL) {
 			snprintf(&errbuf[off], errlen - off, 
 				 "error %d in function %d%s", 
-				 err, func, fatal);
+				 errnum, func, fatal);
 		} else {
 			snprintf(&errbuf[off], errlen - off, 
 				 "OpenSSL error: %d, func %d, "
-				 "lib %d%s", err, func, lib, fatal);
+				 "lib %d%s", errnum, func, lib, fatal);
 		}
 		off = strlen(errbuf);
 		errqueue = ERR_get_error();

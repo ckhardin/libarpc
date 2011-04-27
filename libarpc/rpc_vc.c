@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010  2Wire, Inc.
+ * Copyright (C) 2010  Pace Plc
  * All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -9,7 +9,7 @@
  * - Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * - Neither the name of 2Wire, Inc. nor the names of its
+ * - Neither the name of Pace Plc nor the names of its
  *   contributors may be used to endorse or promote products derived
  *   from this software without specific prior written permission.
  *
@@ -48,6 +48,8 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <time.h>
+#include <event.h>
+#include <libtimeutil/timeutil.h>
 #include <libarpc/stack.h>
 #include <libarpc/arpc.h>
 #include "rpc_com.h"
@@ -195,13 +197,15 @@ static int vc_sendmsg(ar_ioep_t ep, arpc_msg_t *, ar_svc_call_obj_t sco);
 static int vc_add_client(ar_ioep_t ep, const arpcprog_t, const arpcvers_t,
 			 ar_clnt_attr_t *, arpc_err_t *errp,
 			 ar_client_t **);
+static int vc_event_setup(ar_ioep_t ep, struct event_base *evbase);
 
 static ep_driver_t vc_ep_driver = {
 	vc_setup,
 	vc_dispatch,
 	vc_destroy,
 	vc_sendmsg,
-	vc_add_client
+	vc_add_client,
+	vc_event_setup
 };
 
 static int vcd_dflt_read(void *vc, struct iovec *vector, int count,
@@ -385,6 +389,7 @@ vc_clnt_destroy(ar_client_t *cl)
 		while ((cco = TAILQ_FIRST(&ioep->iep_clnt_calls)) != NULL &&
 		       cco->cco_client == cl) {
 			cco->cco_rpc_err = result;
+			vc_cco_bumpref(cco);
 			if ((cco->cco_flags & CCO_FLG_USRREF_DROPPED) == 0) {
 				/* steal back usr reference, after notify */
 				cco->cco_flags |= CCO_FLG_USRREF_DROPPED;
@@ -403,6 +408,7 @@ vc_clnt_destroy(ar_client_t *cl)
 				vc_cco_destroy(cco);
 				cl->cl_ioep = NULL;
 			}
+			vc_cco_dropref(cco);	
 		}
 
 		/* release reference to ioep */
@@ -693,6 +699,8 @@ vc_ioep_destroy(ar_ioep_t ioep)
 
 	assert(ioep != NULL);
 
+	RPCTRACE(ioep->iep_ioctx, 3, "vc_ioep_destroy() ioep %p\n", ioep);
+	
 	ioep->iep_flags |= IEP_FLG_DESTROY;
 	vep = (vc_ioep_t *)ioep->iep_drv_arg;
 	assert(vep != NULL);
@@ -740,6 +748,13 @@ vc_ioep_destroy(ar_ioep_t ioep)
 		free(txo);
 	}
 
+	/* delete and free up monitored event */
+	if (ioep->iep_event) {
+		event_del(ioep->iep_event);
+		event_free(ioep->iep_event);
+		ioep->iep_event = NULL;
+	}
+	
 	ioctx = ioep->iep_ioctx;
 	if (ioctx) {
 		TAILQ_REMOVE(&ioctx->icx_ep_list, ioep, iep_listent);
@@ -1944,6 +1959,373 @@ vc_add_client(ar_ioep_t ep, const arpcprog_t prog, const arpcvers_t vers,
 	return err;
 }
 
+/* vc_event_cb() is a callback function from the event.
+ * it is very similar to vc_dispatch().
+ */
+static void
+vc_event_cb(evutil_socket_t fd, short events, void *arg)
+{
+	ar_clnt_call_obj_t cco;
+	ar_clnt_call_obj_t cconext;
+	ar_ioep_t ep;
+	ar_ioctx_t ioctx;
+	vc_ioep_t *vep;
+	ar_vcd_t vcd;
+	struct timespec diff;
+	struct timespec cur;
+	struct timespec zero;
+	arpc_err_t result;
+	bool_t conn;
+	struct pollfd pfd;
+	int err;
+
+	ep = (ar_ioep_t)arg;
+	if (!ep || ep->iep_type != IOEP_TYPE_VC) {
+		return;
+	}
+
+	vep = ep->iep_drv_arg;
+	if (vep == NULL) {
+		return;
+	}
+
+	if (vep->vep_sys_error > 0) {
+		vc_syserror(vep, vep->vep_sys_error);
+		return;
+	}
+
+	vcd = vep->vep_vcd;
+	ioctx = ep->iep_ioctx;
+	if (!ioctx) {
+		vc_syserror(vep, EINVAL);
+		return;
+	}
+
+	if ((ep->iep_flags & IEP_FLG_DESTROY) != 0) {
+		return;
+	}
+
+	vc_ioep_bumpref(ep);
+
+	RPCTRACE(ioctx, 3, "vc_event_cb(): fd %d, events %d, ep %p\n",
+		 fd, events, ep);
+
+	/* convert the callback events into pfd */
+	memset(&pfd, 0, sizeof(pfd));
+	err = (*vcd->vcd_get_fd)(vep->vep_stream, &pfd.fd);
+	if (err != 0) {
+		fprintf(stderr, "Failed to get vcd fd\n");
+		vc_syserror(vep, err);
+		goto cleanup;
+	}
+	if (events & EV_READ) {
+		pfd.revents |= POLLIN;
+	}
+	if (events & EV_WRITE) {
+		pfd.revents |= POLLOUT;
+	}
+	err = (*vcd->vcd_poll_dispatch)(vep->vep_stream, &pfd);
+	if (err != 0) {
+		vc_syserror(vep, err);
+		goto cleanup;
+	}
+
+	switch (vep->vep_type) {
+	case VEP_TYPE_CONNECTION:
+		if ((vep->vep_flags & VEP_FLG_CONNECTED) == 0) {
+			err = (*vcd->vcd_control)(vep->vep_stream, 
+						  AR_CLGET_CONNECTED, &conn);
+			if (err == 0 && conn) {
+				vep->vep_flags |= VEP_FLG_CONNECTED;
+				vc_dispatch_connected(ep, ARPC_SUCCESS);
+				if ((ep->iep_flags & IEP_FLG_DESTROY) != 0) {
+					goto cleanup;
+				}
+				clock_gettime(CLOCK_MONOTONIC, &cur);
+				TAILQ_FOREACH(cco, &ep->iep_clnt_calls,
+					      cco_listent) {
+					cco->cco_start = cur;
+				}
+				vep->vep_svc_last_rx = cur;
+			}
+		}
+
+		if (events & EV_READ) {
+			vc_read(ioctx, vep, ep);
+			if ((ep->iep_flags & IEP_FLG_DESTROY) != 0) {
+				goto cleanup;
+			}
+		}
+
+		vc_write(ioctx, vep, ep);
+
+		if ((ep->iep_flags & IEP_FLG_DESTROY) != 0) {
+			goto cleanup;
+		}
+
+		/* dispatch timeouts:
+		 * 1. connection establishment timeout
+		 * 2. call timeouts
+		 * 3. connection activity timeout
+		 */
+		clock_gettime(CLOCK_MONOTONIC, &cur);
+		zero.tv_sec = 0;
+		zero.tv_nsec = 0;
+
+		if ((vep->vep_flags & VEP_FLG_CONNECTED) == 0) {
+			tspecsub(&vep->vep_estb_limit, &cur, &diff);
+			if (tspeccmp(&diff, &zero, <=)) {
+				vc_dispatch_connected(ep, ARPC_TIMEDOUT);
+				vc_syserror(vep, ETIMEDOUT);
+				goto cleanup;
+			}
+		}
+
+		if ((vep->vep_flags & VEP_FLG_CONNECTED) != 0 && 
+		    (vep->vep_flags & VEP_FLG_IDLE_ENFORCE) != 0) {
+			tspecadd(&vep->vep_svc_last_rx, 
+				 &vep->vep_idle_period, &diff);
+			tspecsub(&diff, &cur, &diff);
+			if (tspeccmp(&diff, &zero, <=)) {
+				vc_dispatch_disconnect(ep, ARPC_TIMEDOUT);
+				vc_syserror(vep, ETIMEDOUT);
+				goto cleanup;
+			}
+		}
+
+		cco = TAILQ_FIRST(&ep->iep_clnt_calls);
+		if (cco) {
+			vc_cco_bumpref(cco);
+		}
+		for (; cco; cco = cconext) {
+			cconext = TAILQ_NEXT(cco, cco_listent);
+			if (cconext) {
+				vc_cco_bumpref(cconext);
+			}
+			tspecadd(&cco->cco_timeout, &cco->cco_start, &diff);
+			tspecsub(&diff, &cur, &diff);
+			if (tspeccmp(&diff, &zero, >)) {
+				vc_cco_dropref(cco);
+				continue;
+			}
+			if ((cco->cco_flags & CCO_FLG_USRREF_DROPPED) == 0) {
+				cco->cco_flags |= CCO_FLG_USRREF_DROPPED;
+				vc_cco_dropref(cco); /* release user ref */
+				cco->cco_rpc_err.re_status = ARPC_TIMEDOUT;
+				result = cco->cco_rpc_err;
+				(*cco->cco_cb)(cco, cco->cco_cb_arg, 
+					       &result, NULL);
+			}
+			vc_cco_destroy(cco);
+			vc_cco_dropref(cco);
+		}
+
+		break;
+
+	case VEP_TYPE_LISTENER: {
+		void *stream;
+		ar_svc_attr_t attr;
+		vc_ioep_t *vep2;
+		ar_ioep_t ioep2;
+		void *accept_arg;
+		ar_svc_xprt_t *xp;
+		struct event *ev;
+		struct event_base *event_base;
+		
+		ar_svc_attr_init(&attr);
+		attr.sa_sendsz = vep->vep_sendsz;
+		attr.sa_recvsz = vep->vep_recvsz;
+
+		/* child connections inherit initial debug config from
+		 * listener.
+		 */
+		ar_svc_attr_set_debug(&attr, ep->iep_debug_file, 
+				      ep->iep_debug_prefix);
+
+		if (events & EV_READ) {
+			/* new connection */
+			err = (*vcd->vcd_accept)(vep->vep_stream, &stream);
+			if (err == EAGAIN) {
+				/* no more connections */
+				break;
+			}
+
+			if (err != 0) {
+				/* some bad error */
+				/* do we really want to destroy the listener?
+				 * how does the app know we did this? 
+				 * FIXME:
+				 */
+				vc_syserror(vep, err);
+				break;
+			}
+
+			if ((vep->vep_flags & VEP_FLG_FLOWCTL) != 0) {
+				/* over our limit.  Just destroy the conn */
+				(*vcd->vcd_destroy)(stream);
+				break;;
+			}
+
+			if (vcd->vcd_gettmout) {
+				err = (*vcd->vcd_gettmout)(vep->vep_stream,
+							   &attr.sa_create_tmout);
+				if (err != EOK) {
+					(*vcd->vcd_destroy)(stream);
+					break;
+				}
+			}
+
+			/* create xp context */
+			err = ar_svc_vc_create(ioctx, vcd, stream, 
+					       &attr, NULL, &xp);
+			if (err != 0) {
+				/* unable to handle connection. close it
+				 * down.
+				 */
+				(*vcd->vcd_destroy)(stream);
+			} else {
+				assert(xp != NULL);
+
+				/* flag ioep as from listener */
+				ioep2 = xp->xp_ioep;
+				assert(ioep2 != NULL);
+				
+				vc_xp_bumpref(xp);
+
+				vep2 = ioep2->iep_drv_arg;
+
+				vep2->vep_flags |= VEP_FLG_FROM_LISTEN;
+
+				/* update flow control on listener. We
+				 * don't want to many fd's 
+				 */
+				vc_update_flowctl(vep);
+
+				/* notify application of new connection. */
+				if (vep->vep_accept_cb) {
+					accept_arg = vep->vep_accept_arg;
+					err = (*vep->vep_accept_cb)(ioctx, xp,
+								    accept_arg);
+				} else {
+					err = 0;
+				}
+
+				/* release user reference to xp. We have 
+				 * control of destruction of non-listen
+				 * server contexts.
+				 */
+				if (err != EOK) {
+					/* need to destroy new connection */
+					ar_svc_destroy(xp);
+				}
+				if ((xp->xp_flags & XP_FLG_USRREF_DEC) == 0) {
+					xp->xp_flags |= XP_FLG_USRREF_DEC;
+					vc_xp_dropref(xp);
+				}
+				vc_xp_dropref(xp);
+
+				err = (*vep2->vep_vcd->vcd_get_fd)
+				    (vep2->vep_stream, &fd);
+				if (err != 0) {
+					/* bailout */
+					ar_svc_destroy(xp);
+				}
+				/* create and setup event object */
+				event_base = event_get_base(ep->iep_event);
+				if (event_base == NULL) {
+					fprintf(stderr,
+						"Cannot get the event_base\n");
+					ar_svc_destroy(xp);
+				}
+				ev = event_new(event_base, fd,
+					       EV_PERSIST | EV_READ,
+					       vc_event_cb, (void *)ioep2);
+				/* monitor the event */
+				if (ev == NULL) {
+					fprintf(stderr,
+						"Cannot create an event\n");
+					ar_svc_destroy(xp);
+				}
+				event_add_use_ts(ev, NULL);
+				ioep2->iep_event = ev;
+
+				RPCTRACE(ioctx, 3,
+					 "New connection(): fd %d, ep %p\n",
+					 fd, ioep2);
+			}
+		}
+		break;
+	}
+	default:
+		vc_syserror(vep, EINVAL);
+	}
+	    
+ cleanup:
+	vc_ioep_dropref(ep);
+}
+
+static int
+vc_event_setup(ar_ioep_t ep, struct event_base *evbase)
+{
+	struct pollfd pfd;
+	struct event *ev;
+	short events;
+	struct timespec ts_timeout;
+	int timeout;
+	int err;
+
+	if (!ep || ep->iep_type != IOEP_TYPE_VC) {
+		return EINVAL;
+	}
+
+	/* If an event is active, remove the event from monitored list */
+	if (ep->iep_event) {
+		event_del(ep->iep_event);
+	}
+
+	/* call poll_setup routine for the fd and events */
+	memset(&pfd, 0, sizeof(pfd));
+	vc_setup(ep, &pfd, &timeout);
+
+	clock_gettime(CLOCK_MONOTONIC, &ts_timeout);
+	tu_tsaddmsecs(&ts_timeout, timeout);
+
+	/* convert pollfd's events into libevent events */
+	events = EV_PERSIST;
+	if (pfd.events & POLLIN) {
+		events |= EV_READ;
+	}
+	if (pfd.events & POLLOUT) {
+		events |= EV_WRITE;
+	}
+	
+	/* create and setup event object */
+	if (ep->iep_event == NULL) {
+		ev = event_new(evbase, (evutil_socket_t)pfd.fd,
+			       events, vc_event_cb, (void *)ep);
+		if (ev == NULL) {
+			return ENOMEM;
+		}
+		ep->iep_event = ev;
+	} else {
+		err = event_assign(ep->iep_event, evbase,
+				   (evutil_socket_t)pfd.fd,
+				   events, vc_event_cb, (void *)ep);
+		if (err != 0) {
+			event_free(ep->iep_event);
+			ep->iep_event = NULL;
+			return EINVAL;
+		}
+	}
+	/* monitor the event */
+	event_add_use_ts(ep->iep_event, (const struct timespec *)&ts_timeout);
+
+	RPCTRACE(ep->iep_ioctx, 3, "vc_event_setup(): fd %d ep %p\n",
+		 pfd.fd, ep);
+	
+	return 0;
+}
+
 static int
 vcd_err(void)
 {
@@ -2989,7 +3371,6 @@ vcd_dflt_listen(void *vc, const arpc_addr_t *addr)
 		close(fd);
 		return err;
 	}
-
 	ctx->vdc_fd = fd;
 	ctx->vdc_state = VCDD_STATE_LISTEN;
 
@@ -3332,6 +3713,8 @@ io_vcd_ep_create(ar_ioctx_t ctx, ar_vcd_t drv, void *drv_arg,
 	}
 
 	*ioepp = ioep;
+	RPCTRACE(ctx, 3, "io_vcd_ep_create(): %p\n", ioep);
+	
 	return 0;
 
 error:
@@ -3666,6 +4049,7 @@ ar_clnt_vc_create(ar_ioctx_t ctx, ar_vcd_t drv, const arpc_addr_t *svcaddr,
 	cl->cl_discon_cb_arg = attr->ca_discon_arg;
 
 	err = (*vep->vep_vcd->vcd_connect)(vep->vep_stream, svcaddr, errp);
+	RPCTRACE(ioep->iep_ioctx, 3, "vcd_connect(): ioep %p err %d\n", ioep, err);
 	if (err != 0) {
 		free(cl);
 		io_vcd_ep_destroy(ioep);
@@ -3691,6 +4075,7 @@ ar_clnt_vc_create(ar_ioctx_t ctx, ar_vcd_t drv, const arpc_addr_t *svcaddr,
 
 	/* add ioep to ioctx */
 	TAILQ_INSERT_TAIL(&ctx->icx_ep_list, ioep, iep_listent);
+	RPCTRACE(ioep->iep_ioctx, 3, "ar_clnt_vc_create(): ioep %p\n", ioep);
 
 	if ((attr->ca_flags & CA_FLG_ALLOW_SVC) != 0) {
 		err = vc_add_svc_ctx(ioep, NULL);
@@ -3986,7 +4371,6 @@ clnt_vc_control(ar_client_t *cl, u_int request, void *info)
 {
 	struct timespec ts;
 	int fd;
-	int len;
 	socklen_t optlen;
 	ar_ioep_t ioep;
 	vc_ioep_t *vep;
@@ -4052,9 +4436,9 @@ clnt_vc_control(ar_client_t *cl, u_int request, void *info)
 		if (err != 0) {
 			return FALSE;
 		}
-		len = sizeof(struct ucred); 
+		optlen = sizeof(struct ucred); 
 		err = getsockopt(fd, SOL_SOCKET, SO_PEERCRED, 
-				 (struct ucred *)info, &len);
+				 (struct ucred *)info, &optlen);
 		if (err != 0) {
 			return FALSE;
 		}
@@ -4136,6 +4520,7 @@ xp_vc_control(ar_svc_xprt_t *xp, u_int cmd, void *info)
 	int fd;
 	int tmp;
 	int err;
+	socklen_t len;
 	bool_t ret;
 
 	if (!xp) {
@@ -4231,9 +4616,9 @@ xp_vc_control(ar_svc_xprt_t *xp, u_int cmd, void *info)
 		if (err != 0) {
 			return FALSE;
 		}
-		tmp = sizeof(struct ucred);
+		len = sizeof(struct ucred);
 		err = getsockopt(fd, SOL_SOCKET, SO_PEERCRED,
-				 (struct ucred *)info, &tmp);
+				 (struct ucred *)info, &len);
 		if (err != 0) {
 			return FALSE;
 		}
@@ -4242,6 +4627,7 @@ xp_vc_control(ar_svc_xprt_t *xp, u_int cmd, void *info)
 	default:
 		return ar_svc_control_default(xp, cmd, info);
 	}
+	return FALSE;
 }
 
 

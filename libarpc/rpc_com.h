@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010  2Wire, Inc.
+ * Copyright (C) 2010  Pace Plc
  * All Rights Reserved.
  *
  * Copyright (c) 2009, Sun Microsystems, Inc.
@@ -45,6 +45,7 @@
 
 #include <sys/cdefs.h>
 #include <sys/queue.h>
+#include <event.h>
 
 /*
  * The max size of the transport, if the size cannot be determined
@@ -69,9 +70,9 @@ typedef TAILQ_ENTRY(ar_clnt_call_obj_s) cco_listent_t;
 typedef TAILQ_HEAD(cout_list_s, svc_callout) cout_list_t;
 typedef TAILQ_ENTRY(svc_callout) cout_listent_t;
 
-typedef int (*clnt_call_t)(ar_client_t *, arpcproc_t, axdrproc_t, void *, 
-			   bool_t inplace, axdrproc_t, void *, int, 
-			   ar_clnt_async_cb_t, void *, struct timespec *, 
+typedef int (*clnt_call_t)(ar_client_t *, arpcproc_t, axdrproc_t, void *,
+			   bool_t inplace, axdrproc_t, void *, int,
+			   ar_clnt_async_cb_t, void *, struct timespec *,
 			   ar_clnt_call_obj_t *);
 typedef int (*clnt_handoff_t)(ar_client_t *, ar_client_t *, cco_list_t *,
 			      struct ar_xid_state_s *xstate,
@@ -126,7 +127,7 @@ struct ar_client_s {
 	void			*cl_conn_cb_arg;
 	ar_discon_cb_t		cl_discon_cb;
 	void			*cl_discon_cb_arg;
-	void 			*cl_private;	/* private stuff */
+	void			*cl_private;	/* private stuff */
 };
 
 #define CLNT_FLG_DESTROY	0x00000001
@@ -137,7 +138,7 @@ struct ar_client_s {
 /*
  * void
  * CLNT_ABORT(rh);
- * 	ar_client_t *rh;
+ *	ar_client_t *rh;
  */
 #define	CLNT_ABORT(rh)	((*(rh)->cl_ops->cl_abort)(rh))
 #define	clnt_abort(rh)	((*(rh)->cl_ops->cl_abort)(rh))
@@ -145,7 +146,7 @@ struct ar_client_s {
 /*
  * struct rpc_err
  * CLNT_GETERR(rh);
- * 	ar_client_t *rh;
+ *	ar_client_t *rh;
  */
 #define	CLNT_GETERR(rh,errp)	((*(rh)->cl_ops->cl_geterr)(rh, errp))
 #define	clnt_geterr(rh,errp)	((*(rh)->cl_ops->cl_geterr)(rh, errp))
@@ -154,7 +155,7 @@ struct ar_client_s {
 /*
  * bool_t
  * CLNT_FREERES(rh, xres, resp);
- * 	ar_client_t *rh;
+ *	ar_client_t *rh;
  *	xdrproc_t xres;
  *	void *resp;
  */
@@ -164,7 +165,7 @@ struct ar_client_s {
 /*
  * void
  * CLNT_DESTROY(rh);
- * 	ar_client_t *rh;
+ *	ar_client_t *rh;
  */
 #define	CLNT_DESTROY(rh)	((*(rh)->cl_ops->cl_destroy)(rh))
 
@@ -178,7 +179,7 @@ struct ar_xid_state_s {
 struct xp_ops {
 	/* send a server call reply (using sco) */
 	int	(*xp_sco_reply)(ar_svc_xprt_t *, ar_svc_call_obj_t sco);
-	
+
 	/* alloc a server call tracking structure */
 	int	(*xp_sco_alloc)(ar_svc_xprt_t *, ar_svc_call_obj_t *scop);
 
@@ -246,7 +247,7 @@ struct ar_svc_call_obj_s {
 	axdrproc_t		sco_resultxdr;
 	int			sco_resultlen;
 
-	arpc_msg_t 		sco_reply;
+	arpc_msg_t		sco_reply;
 
 	void			*sco_lower; /* for ep driver */
 	arpc_err_t		sco_err;	/* rpc level error result */
@@ -282,7 +283,7 @@ struct ar_clnt_call_obj_s {
 	cco_listent_t		cco_listent;
 	struct timespec		cco_timeout;	/* timeout interval */
 	struct timespec		cco_start;	/* time at start */
-	clnt_args_type_t 	cco_rtype;
+	clnt_args_type_t	cco_rtype;
 	union {
 		struct {
 			char		*buf;
@@ -298,7 +299,7 @@ struct ar_clnt_call_obj_s {
 	void			*cco_resp;
 	int			cco_authrefresh;
 	arpc_err_t		cco_rpc_err;
-	arpc_msg_t 		cco_call;
+	arpc_msg_t		cco_call;
 	ar_clnt_async_cb_t	cco_cb;
 	void			*cco_cb_arg;
 	void			*cco_lower; /* for ep driver */
@@ -315,7 +316,7 @@ struct ar_clnt_call_obj_s {
 #define CG_DEF_CONN_TIMEOUT_NSECS	0
 
 typedef struct ep_driver_s {
-	void (*epd_poll_setup)(ar_ioep_t ep, struct pollfd *pfd, 
+	void (*epd_poll_setup)(ar_ioep_t ep, struct pollfd *pfd,
 			       int *timeoutp);
 	void (*epd_poll_dispatch)(ar_ioep_t ep, struct pollfd *pfd);
 	void (*epd_destroy)(ar_ioep_t ep);
@@ -323,8 +324,9 @@ typedef struct ep_driver_s {
 	int (*epd_sendmsg)(ar_ioep_t ep, arpc_msg_t *, ar_svc_call_obj_t);
 
 	int (*epd_add_client)(ar_ioep_t ep, const arpcprog_t, const arpcvers_t,
-			      ar_clnt_attr_t *, arpc_err_t *errp, 
+			      ar_clnt_attr_t *, arpc_err_t *errp,
 			      ar_client_t **);
+	int (*epd_event_setup)(ar_ioep_t ep, struct event_base *evbase);
 } ep_driver_t;
 
 typedef TAILQ_HEAD(ioep_list_s, ar_ioep_s) ioep_list_t;
@@ -342,10 +344,11 @@ struct ar_ioep_s {
 	int			iep_refcnt;
 	uint32_t		iep_flags;
 	ep_driver_t		*iep_drv;
-	void			*iep_drv_arg	;
+	void			*iep_drv_arg;
 	ar_ioctx_t		iep_ioctx;
+	struct event            *iep_event;
 	ar_auth_t		*iep_auth;	/* clnt authenticator */
-	ar_opaque_auth_t 	iep_verf;	/* svc raw response verifier */
+	ar_opaque_auth_t	iep_verf;	/* svc raw response verifier */
 	ar_svc_xprt_t		*iep_svc_ctx;
 	ar_clnt_call_obj_t	iep_clnt_reply;
 	ar_svc_call_obj_t	iep_svc_call;
@@ -362,7 +365,7 @@ struct ar_ioep_s {
 #define IEP_FLG_ALLOW_SVC	0x00000001
 #define IEP_FLG_DESTROY		0x00000002	/* queued destroy */
 
-extern int ar_ioep_init(ar_ioep_t, ar_ioctx_t, ar_ioep_type_t, 
+extern int ar_ioep_init(ar_ioep_t, ar_ioctx_t, ar_ioep_type_t,
 			ep_driver_t *, void *, FILE *, const char *prefix);
 extern void ar_ioep_cleanup(ar_ioep_t);
 
@@ -412,33 +415,16 @@ typedef TAILQ_ENTRY(driver_map_s) drv_listent_t;
 struct driver_map_s {
 	drv_listent_t	drv_listent;
 	char		drv_proto[16];
-	ar_vcd_t 	drv_vcd;
+	ar_vcd_t	drv_vcd;
 };
 typedef struct driver_map_s *driver_map_t;
 
-typedef TAILQ_ENTRY(ar_timer_s) ar_timer_listent_t;
-typedef TAILQ_HEAD(ar_timer_list_s, ar_timer_s) ar_timer_list_t;
-struct ar_timer_s {
-        ar_timer_listent_t      listent;
-	uint64_t		id;
-	bool_t 			in_progress;
-        struct timespec         timeout;
-        ar_timer_cb_t           cb_fn;
-        void                    *cb_param;
-};
-
-typedef struct ar_timer_cfg_s {
-	uint64_t	next_id;
-	ar_timer_list_t timer_list;
-	int		timer_fd[2];
-} ar_timer_cfg_t;
-
 struct ar_ioctx_s {
-        ioep_list_t     icx_ep_list;
-        cout_list_t     icx_svc_list;
-        driver_list_t   icx_drv_list;
-        ar_netid_t      *icx_netid_list;
-        ar_timer_cfg_t	 icx_timer;
+	ioep_list_t     icx_ep_list;
+	cout_list_t     icx_svc_list;
+	driver_list_t   icx_drv_list;
+	ar_netid_t      *icx_netid_list;
+	int             icx_verbose;
 };
 
 #define tspecclear(tvp)  (tvp)->tv_sec = (tvp)->tv_nsec = 0
@@ -446,27 +432,35 @@ struct ar_ioctx_s {
 
 #define tspeccmp(tvp, uvp, cmp)                                 \
     (((tvp)->tv_sec == (uvp)->tv_sec) ?                         \
-        ((tvp)->tv_nsec cmp (uvp)->tv_nsec) :                   \
-        ((tvp)->tv_sec cmp (uvp)->tv_sec))
+	((tvp)->tv_nsec cmp (uvp)->tv_nsec) :                   \
+	((tvp)->tv_sec cmp (uvp)->tv_sec))
 
 #define tspecadd(tvp, uvp, vvp)                                 \
     do {                                                        \
-        (vvp)->tv_sec = (tvp)->tv_sec + (uvp)->tv_sec;          \
-        (vvp)->tv_nsec = (tvp)->tv_nsec + (uvp)->tv_nsec;       \
-        if ((vvp)->tv_nsec >= 1000000000) {                     \
-            (vvp)->tv_sec++;                                    \
-            (vvp)->tv_nsec -= 1000000000;                       \
-        }                                                       \
+	(vvp)->tv_sec = (tvp)->tv_sec + (uvp)->tv_sec;          \
+	(vvp)->tv_nsec = (tvp)->tv_nsec + (uvp)->tv_nsec;       \
+	if ((vvp)->tv_nsec >= 1000000000) {                     \
+	    (vvp)->tv_sec++;                                    \
+	    (vvp)->tv_nsec -= 1000000000;                       \
+	}                                                       \
     } while (0)
 
 #define tspecsub(tvp, uvp, vvp)                                 \
     do {                                                        \
-        (vvp)->tv_sec = (tvp)->tv_sec - (uvp)->tv_sec;          \
-        (vvp)->tv_nsec = (tvp)->tv_nsec - (uvp)->tv_nsec;       \
-        if ((vvp)->tv_nsec < 0) {                               \
-            (vvp)->tv_sec--;                                    \
-            (vvp)->tv_nsec += 1000000000;                       \
-        }                                                       \
+	(vvp)->tv_sec = (tvp)->tv_sec - (uvp)->tv_sec;          \
+	(vvp)->tv_nsec = (tvp)->tv_nsec - (uvp)->tv_nsec;       \
+	if ((vvp)->tv_nsec < 0) {                               \
+	    (vvp)->tv_sec--;                                    \
+	    (vvp)->tv_nsec += 1000000000;                       \
+	}                                                       \
+    } while (0)
+
+#define RPCTRACE(ioctx, l, fmt...)				\
+    do {							\
+	    if (ioctx && (ioctx)->icx_verbose >= l) {		\
+		    fprintf(stdout, "libarpc CTX %p: ", ioctx);	\
+		    fprintf(stdout, ## fmt);			\
+	    }							\
     } while (0)
 
 __BEGIN_DECLS
@@ -475,9 +469,9 @@ extern void ar_svc_reply_done(ar_svc_call_obj_t);
 extern void ar_clnt_call_done(ar_clnt_call_obj_t);
 extern ar_svc_call_obj_t ar_svc_new_rx_msg(ar_ioep_t);
 extern ar_clnt_call_obj_t ar_clnt_new_rx_msg(ar_ioep_t);
-extern axdr_ret_t ar_clnt_handle_reply(axdr_state_t *, ar_ioep_t, 
+extern axdr_ret_t ar_clnt_handle_reply(axdr_state_t *, ar_ioep_t,
 				       arpc_msg_t *, ar_clnt_call_obj_t *ccop);
-extern axdr_ret_t ar_svc_handle_call(axdr_state_t *, ar_ioep_t, 
+extern axdr_ret_t ar_svc_handle_call(axdr_state_t *, ar_ioep_t,
 				     arpc_msg_t *, ar_svc_call_obj_t *scop);
 extern int ar_fixup_addr(arpc_addr_t *, const arpc_addr_t *);
 
@@ -488,7 +482,7 @@ extern int ar_time_to_ms(struct timespec *diff);
 extern void ar_xid_init(struct ar_xid_state_s *state);
 extern uint32_t ar_xid_get(struct ar_xid_state_s *state);
 extern void ar_seterr_reply(arpc_msg_t *msg, arpc_err_t *error);
-extern int ar_clnt_cco_init(ar_clnt_call_obj_t cco, ar_client_t *cl, 
+extern int ar_clnt_cco_init(ar_clnt_call_obj_t cco, ar_client_t *cl,
 			    ar_auth_t *auth, struct ar_xid_state_s *xids,
 			    arpcproc_t proc, axdrproc_t xargs, void *argsp,
 			    bool_t inplace, axdrproc_t xres, void *resp,
@@ -500,10 +494,11 @@ extern bool_t ar_clnt_control_default(ar_client_t *rh, u_int req, char *info);
 extern void ar_svc_sco_cleanup(ar_svc_call_obj_t sco);
 extern void ar_svc_sco_unlink(ar_svc_call_obj_t sco);
 extern int ar_svc_sco_init(ar_svc_call_obj_t sco, ar_svc_xprt_t *xp);
-extern bool_t ar_svc_control_default(ar_svc_xprt_t *xprt, 
+extern bool_t ar_svc_control_default(ar_svc_xprt_t *xprt,
 				     const u_int cmd, void *info);
 
-extern void	ar_svcerr_systemerr(ar_svc_xprt_t *, uint32_t, ar_svc_call_obj_t sco);
+extern void ar_svcerr_systemerr(ar_svc_xprt_t *, uint32_t,
+				ar_svc_call_obj_t sco);
 
 void ar_log_msg(ar_ioep_t, arpc_msg_t *msg, const char *heading);
 
