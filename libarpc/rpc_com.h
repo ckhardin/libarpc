@@ -45,7 +45,9 @@
 
 #include <sys/cdefs.h>
 #include <sys/queue.h>
+#ifdef HAVE_LIBEVENT
 #include <event.h>
+#endif
 
 /*
  * The max size of the transport, if the size cannot be determined
@@ -326,7 +328,9 @@ typedef struct ep_driver_s {
 	int (*epd_add_client)(ar_ioep_t ep, const arpcprog_t, const arpcvers_t,
 			      ar_clnt_attr_t *, arpc_err_t *errp,
 			      ar_client_t **);
+#ifdef HAVE_LIBEVENT
 	int (*epd_event_setup)(ar_ioep_t ep, struct event_base *evbase);
+#endif
 } ep_driver_t;
 
 typedef TAILQ_HEAD(ioep_list_s, ar_ioep_s) ioep_list_t;
@@ -478,6 +482,7 @@ extern int ar_fixup_addr(arpc_addr_t *, const arpc_addr_t *);
 extern void ar_ioep_fatal_error(ar_ioep_t);
 extern bool_t ar_time_not_ok(struct timespec *t);
 extern int ar_time_to_ms(struct timespec *diff);
+extern int ar_gettime(struct timespec *res);
 
 extern void ar_xid_init(struct ar_xid_state_s *state);
 extern uint32_t ar_xid_get(struct ar_xid_state_s *state);

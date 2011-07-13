@@ -44,7 +44,9 @@
 #include <fcntl.h>
 #include <time.h>
 #include <libarpc/arpc.h>
+#ifdef HAVE_LIBEVENT
 #include <event.h>
+#endif
 
 #include "rpc_com.h"
 
@@ -387,6 +389,7 @@ ar_ioctx_loop(ar_ioctx_t ioctx)
 	return err;
 }
 
+#ifdef HAVE_LIBEVENT
 int
 ar_ioctx_event_setup(ar_ioctx_t ioctx, struct event_base *evbase)
 {
@@ -421,6 +424,7 @@ ar_ioctx_event_cleanup(ar_ioctx_t ioctx)
 	}
 	return 0;
 }
+#endif
 
 int
 ar_ioctx_set_verbose(ar_ioctx_t ioctx, int level)

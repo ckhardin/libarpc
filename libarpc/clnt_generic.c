@@ -433,7 +433,7 @@ gen_priv_create(ar_ioctx_t ioctx, ar_clnt_attr_t *attrs,
 		}
 	}
 
-	clock_gettime(CLOCK_MONOTONIC, &ts);
+	ar_gettime(&ts);
 	tspecadd(&ts, &priv->cg_attrs.ca_create_tmout, &priv->cg_tlimit);
 
 	err = astk_init(&priv->cg_stack);
@@ -907,7 +907,7 @@ gen_io_tp_create_dispatch(clnt_gen_priv_t *priv)
 
 	switch (state) {
 	case 0:
-		clock_gettime(CLOCK_MONOTONIC, &ts1);
+		ar_gettime(&ts1);
 		tspecsub(&priv->cg_tlimit, &ts1, &ts1);
 		tspecclear(&tszero);
 
@@ -987,7 +987,7 @@ gen_io_tp_create_dispatch(clnt_gen_priv_t *priv)
 		attr.ca_conn_arg = priv;
 
 		/* compute correct partial timeout */
-		clock_gettime(CLOCK_MONOTONIC, &ts1);
+		ar_gettime(&ts1);
 		tspecsub(&priv->cg_tlimit, &ts1, &ts1);
 		tspecclear(&tszero);
 
@@ -1612,7 +1612,7 @@ ar_clnt_cco_init(ar_clnt_call_obj_t cco, ar_client_t *cl, ar_auth_t *auth,
 		cco->cco_timeout.tv_nsec = CG_DEF_RPC_TIMEOUT_NSECS;
 	}
 
-	clock_gettime(CLOCK_MONOTONIC, &cco->cco_start);
+	ar_gettime(&cco->cco_start);
 
 	cco->cco_rpc_err.re_status = ARPC_SUCCESS;
 	cco->cco_xres = xres;

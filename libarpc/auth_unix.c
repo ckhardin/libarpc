@@ -52,10 +52,10 @@
 #include <unistd.h>
 #include <string.h>
 
-#include <rpc/types.h>
-#include <rpc/xdr.h>
-#include <rpc/auth.h>
-#include <rpc/auth_unix.h>
+#include <libarpc/types.h>
+#include <libarpc/axdr.h>
+#include <libarpc/auth.h>
+#include <libarpc/auth_unix.h>
 #include "un-namespace.h"
 
 /* auth_unix.c */

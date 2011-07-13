@@ -30,7 +30,9 @@
 #define	_LIBARPC_ARPC_IO_H
 
 #include <sys/cdefs.h>
+#ifdef HAVE_LIBEVENT
 #include <event.h>
+#endif
 
 /* SOME legacy defines:
  *
@@ -115,8 +117,12 @@ extern int ar_ioctx_pfd_dispatch(ar_ioctx_t ioctx,
 extern int ar_ioctx_pfd_timeout(ar_ioctx_t ioctx);
 extern int ar_ioctx_loop(ar_ioctx_t ioctx);
 extern int ar_ioctx_run(ar_ioctx_t ioctx);
+
+#ifdef HAVE_LIBEVENT
 extern int ar_ioctx_event_setup(ar_ioctx_t ioctx, struct event_base *evbase);
 extern int ar_ioctx_event_cleanup(ar_ioctx_t ioctx);
+#endif
+
 extern void ar_ioctx_destroy(ar_ioctx_t ioctx);
 extern void ar_ioctx_dump(ar_ioctx_t ioctx, FILE *fp);
 extern void ar_ioep_destroy(ar_ioep_t ep);

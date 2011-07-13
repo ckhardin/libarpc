@@ -313,7 +313,7 @@ rpcb_getaddr_done(ar_clnt_call_obj_t cco, void *arg,
 	}
 
 	/* check for timeout */
-	clock_gettime(CLOCK_MONOTONIC, &cur);
+	ar_gettime(&cur);
 	tspecsub(&rpcb->rbs_time_limit, &cur, &diff);
 	tspecclear(&zero);
 	if (tspeccmp(&diff, &zero, <=)) {
@@ -401,7 +401,7 @@ rpcb_resolve_done(arpcb_client_t rpcb)
 	memset(&cferr, 0, sizeof(cferr));
 	cferr.cf_stat = ARPC_SUCCESS;
 
-	clock_gettime(CLOCK_MONOTONIC, &cur);
+	ar_gettime(&cur);
 	tspecsub(&rpcb->rbs_time_limit, &cur, &diff);
 	tspecclear(&zero);
 	if (tspeccmp(&diff, &zero, <=)) {
@@ -656,7 +656,7 @@ rpcb_io_base_create(ar_ioctx_t ioctx, const char *netid,
 	}
 	memset(rpcb, 0, sizeof(*rpcb));
 
-	clock_gettime(CLOCK_MONOTONIC, &start);
+	ar_gettime(&start);
 	tspecadd(tmout, &start, &start);
 
 	rpcb->rbs_ioctx = ioctx;

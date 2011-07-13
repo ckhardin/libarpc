@@ -48,8 +48,11 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <time.h>
+
+#ifdef HAVE_LIBEVENT
 #include <event.h>
-#include <libtimeutil/timeutil.h>
+#endif
+
 #include <libarpc/stack.h>
 #include <libarpc/arpc.h>
 #include "rpc_com.h"
@@ -197,7 +200,9 @@ static int vc_sendmsg(ar_ioep_t ep, arpc_msg_t *, ar_svc_call_obj_t sco);
 static int vc_add_client(ar_ioep_t ep, const arpcprog_t, const arpcvers_t,
 			 ar_clnt_attr_t *, arpc_err_t *errp,
 			 ar_client_t **);
+#ifdef HAVE_LIBEVENT
 static int vc_event_setup(ar_ioep_t ep, struct event_base *evbase);
+#endif
 
 static ep_driver_t vc_ep_driver = {
 	vc_setup,
@@ -205,7 +210,9 @@ static ep_driver_t vc_ep_driver = {
 	vc_destroy,
 	vc_sendmsg,
 	vc_add_client,
+#ifdef HAVE_LIBEVENT
 	vc_event_setup
+#endif
 };
 
 static int vcd_dflt_read(void *vc, struct iovec *vector, int count,
@@ -748,12 +755,14 @@ vc_ioep_destroy(ar_ioep_t ioep)
 		free(txo);
 	}
 
+#ifdef HAVE_LIBEVENT
 	/* delete and free up monitored event */
 	if (ioep->iep_event) {
 		event_del(ioep->iep_event);
 		event_free(ioep->iep_event);
 		ioep->iep_event = NULL;
 	}
+#endif
 	
 	ioctx = ioep->iep_ioctx;
 	if (ioctx) {
@@ -1457,7 +1466,7 @@ vc_setup(ar_ioep_t ep, struct pollfd *pfd, int *timeoutp)
 		 * 2. call timeouts
 		 * 3. connection activity timeout
 		 */
-		clock_gettime(CLOCK_MONOTONIC, &cur);
+		ar_gettime(&cur);
 	
 		if ((vep->vep_flags & VEP_FLG_CONNECTED) == 0) {
 			tspecsub(&vep->vep_estb_limit, &cur, &diff);
@@ -1586,7 +1595,7 @@ vc_dispatch(ar_ioep_t ep, struct pollfd *pfd)
 				if ((ep->iep_flags & IEP_FLG_DESTROY) != 0) {
 					goto cleanup;
 				}
-				clock_gettime(CLOCK_MONOTONIC, &cur);
+				ar_gettime(&cur);
 				TAILQ_FOREACH(cco, &ep->iep_clnt_calls,
 					      cco_listent) {
 					cco->cco_start = cur;
@@ -1613,7 +1622,7 @@ vc_dispatch(ar_ioep_t ep, struct pollfd *pfd)
 		 * 2. call timeouts
 		 * 3. connection activity timeout
 		 */
-		clock_gettime(CLOCK_MONOTONIC, &cur);
+		ar_gettime(&cur);
 		zero.tv_sec = 0;
 		zero.tv_nsec = 0;
 
@@ -1959,6 +1968,7 @@ vc_add_client(ar_ioep_t ep, const arpcprog_t prog, const arpcvers_t vers,
 	return err;
 }
 
+#ifdef HAVE_LIBEVENT
 /* vc_event_cb() is a callback function from the event.
  * it is very similar to vc_dispatch().
  */
@@ -2041,7 +2051,7 @@ vc_event_cb(evutil_socket_t fd, short events, void *arg)
 				if ((ep->iep_flags & IEP_FLG_DESTROY) != 0) {
 					goto cleanup;
 				}
-				clock_gettime(CLOCK_MONOTONIC, &cur);
+				ar_gettime(&cur);
 				TAILQ_FOREACH(cco, &ep->iep_clnt_calls,
 					      cco_listent) {
 					cco->cco_start = cur;
@@ -2068,7 +2078,7 @@ vc_event_cb(evutil_socket_t fd, short events, void *arg)
 		 * 2. call timeouts
 		 * 3. connection activity timeout
 		 */
-		clock_gettime(CLOCK_MONOTONIC, &cur);
+		ar_gettime(&cur);
 		zero.tv_sec = 0;
 		zero.tv_nsec = 0;
 
@@ -2287,7 +2297,7 @@ vc_event_setup(ar_ioep_t ep, struct event_base *evbase)
 	memset(&pfd, 0, sizeof(pfd));
 	vc_setup(ep, &pfd, &timeout);
 
-	clock_gettime(CLOCK_MONOTONIC, &ts_timeout);
+	ar_gettime(&ts_timeout);
 	tu_tsaddmsecs(&ts_timeout, timeout);
 
 	/* convert pollfd's events into libevent events */
@@ -2325,6 +2335,7 @@ vc_event_setup(ar_ioep_t ep, struct event_base *evbase)
 	
 	return 0;
 }
+#endif /* HAVE_LIBEVENT */
 
 static int
 vcd_err(void)
@@ -3642,7 +3653,7 @@ io_vcd_ep_create(ar_ioctx_t ctx, ar_vcd_t drv, void *drv_arg,
 		prefix = NULL;
 	}
 
-	clock_gettime(CLOCK_MONOTONIC, &ts);
+	ar_gettime(&ts);
 	if (type == VEP_TYPE_CONNECTION && attr) {
 		tspecadd(&ts, &attr->ca_create_tmout, &vep->vep_estb_limit);
 	} else if (sattr && tspecisset(&sattr->sa_create_tmout)) {
@@ -3688,7 +3699,7 @@ io_vcd_ep_create(ar_ioctx_t ctx, ar_vcd_t drv, void *drv_arg,
 	vep_init_async(&vep->vep_async_rx);
 	vep_init_async(&vep->vep_async_tx);
 	
-	clock_gettime(CLOCK_MONOTONIC, &vep->vep_svc_last_rx);
+	ar_gettime(&vep->vep_svc_last_rx);
 
 	vep->vep_ioep = ioep;
 	vep->vep_rx_state = VEP_RX_STATE_SKIPRECORD;
@@ -4105,7 +4116,7 @@ ar_clnt_vc_create(ar_ioctx_t ctx, ar_vcd_t drv, const arpc_addr_t *svcaddr,
 			vc_dispatch_connected(ioep, ARPC_SUCCESS);
 
 			if ((ioep->iep_flags & IEP_FLG_DESTROY) == 0) {
-				clock_gettime(CLOCK_MONOTONIC, &cur);
+				ar_gettime(&cur);
 				TAILQ_FOREACH(cco, &ioep->iep_clnt_calls,
 					      cco_listent) {
 					cco->cco_start = cur;
@@ -4679,7 +4690,7 @@ clnt_vc_handoff(ar_client_t *src, ar_client_t *dst, cco_list_t *msglist,
 	vep = (vc_ioep_t *)ioep->iep_drv_arg;
 	assert(vep != NULL);
 
-	clock_gettime(CLOCK_MONOTONIC, &now);
+	ar_gettime(&now);
 
 	TAILQ_INIT(&list);
 	err = 0;

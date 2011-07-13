@@ -701,6 +701,34 @@ ar_time_to_ms(struct timespec *diff)
 	return period;
 }
 
+int
+ar_gettime(struct timespec *res)
+{
+	int sts;
+	struct timeval tv;
+
+	if (!res) {
+		errno = EINVAL;
+		return -1;
+	}
+
+#ifdef HAVE_CLOCK_MONOTONIC
+	sts = clock_gettime(CLOCK_MONOTONIC, res);
+	if (sts == 0) {
+		return sts;
+	}
+#endif
+
+	/* use gettimeofday as a backup */
+	sts = gettimeofday(&tv, NULL);
+	if (sts != 0) {
+		return sts;
+	}
+	res->tv_sec = tv.tv_sec;
+	res->tv_nsec = tv.tv_usec * 1000;
+	return 0;
+}
+
 void
 ar_xid_init(struct ar_xid_state_s *state)
 {

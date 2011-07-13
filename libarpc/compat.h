@@ -35,6 +35,7 @@
 
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/un.h>
 #include <netinet/in.h>
 #include <errno.h>
 #include <stdint.h>
@@ -74,6 +75,10 @@ struct ucred {
 	int uid;
 	int gid;
 };
+#endif
+
+#if defined(LOCAL_PEERCRED) && !defined(SO_PEERCRED)
+#define SO_PEERCRED LOCAL_PEERCRED
 #endif
 
 /* FIXME: generate from autoconf */

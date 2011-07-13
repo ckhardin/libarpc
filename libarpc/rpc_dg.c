@@ -46,8 +46,11 @@
 #include <string.h>
 #include <stdlib.h>
 #include <errno.h>
+
+#ifdef HAVE_LIBEVENT
 #include <event.h>
-#include <libtimeutil/timeutil.h>
+#endif
+
 #include <libarpc/arpc.h>
 #include "rpc_com.h"
 
@@ -110,7 +113,9 @@ static int dg_sendmsg(ar_ioep_t ep, arpc_msg_t *, ar_svc_call_obj_t);
 static int dg_add_client(ar_ioep_t ep, const arpcprog_t, const arpcvers_t,
 			 ar_clnt_attr_t *, arpc_err_t *errp,
 			 ar_client_t **);
+#ifdef HAVE_LIBEVENT
 static int dg_event_setup(ar_ioep_t ep, struct event_base *evbase);
+#endif
 
 static int clnt_dg_call(ar_client_t *, arpcproc_t, axdrproc_t, void *, 
 			bool_t inplace, axdrproc_t, void *, int, 
@@ -131,7 +136,9 @@ static ep_driver_t dg_ep_driver = {
 	dg_destroy,
 	dg_sendmsg,
 	dg_add_client,
+#ifdef HAVE_LIBEVENT
 	dg_event_setup
+#endif
 };
 
 struct clnt_ops dg_clnt_ops = {
@@ -499,12 +506,14 @@ dg_ioep_destroy(ar_ioep_t ioep)
 		ioep->iep_ioctx = NULL;
 	}
 
+#ifdef HAVE_LIBEVENT
 	/* delete and free up monitored event */
 	if (ioep->iep_event) {
 		event_del(ioep->iep_event);
 		event_free(ioep->iep_event);
 		ioep->iep_event = NULL;
 	}
+#endif
 	
 	/* close the fd immediately */
 	if (dep->dep_fd >= 0) {
@@ -832,7 +841,7 @@ clnt_dg_reauth(ar_client_t *cl, ar_clnt_call_obj_t cco)
 
 	dg_clnt_dropref(cl);
 
-	clock_gettime(CLOCK_MONOTONIC, &cur);
+	ar_gettime(&cur);
 	tspecadd(&dgc->dgc_retran_interval, &cur, &dgc->dgc_retran_limit);
 
 	return;
@@ -1078,7 +1087,7 @@ dg_setup(ar_ioep_t ep, struct pollfd *pfd, int *timeoutp)
 	 * 1. call timeouts
 	 * 2. svc response timers
 	 */
-	clock_gettime(CLOCK_MONOTONIC, &cur);
+	ar_gettime(&cur);
 	
 	TAILQ_FOREACH(cco, &ep->iep_clnt_calls, cco_listent) {
 		if (cco->cco_state != CCO_STATE_PENDING &&
@@ -1177,7 +1186,7 @@ dg_dispatch(ar_ioep_t ep, struct pollfd *pfd)
 	 * 1. call timeouts
 	 * 2. svc response timers
 	 */
-	clock_gettime(CLOCK_MONOTONIC, &cur);
+	ar_gettime(&cur);
 	zero.tv_sec = 0;
 	zero.tv_nsec = 0;
 	
@@ -1404,6 +1413,7 @@ dg_add_client(ar_ioep_t ep, const arpcprog_t prog, const arpcvers_t vers,
 	return err;
 }
 
+#ifdef HAVE_LIBEVENT
 /* dg_event_cb() is a callback function from the event.
  * it is very similar to dg_dispatch().
  */
@@ -1463,7 +1473,7 @@ dg_event_cb(evutil_socket_t fd, short events, void *arg)
 	 * 1. call timeouts
 	 * 2. svc response timers
 	 */
-	clock_gettime(CLOCK_MONOTONIC, &cur);
+	ar_gettime(&cur);
 	zero.tv_sec = 0;
 	zero.tv_nsec = 0;
 	
@@ -1524,7 +1534,9 @@ dg_event_cb(evutil_socket_t fd, short events, void *arg)
 	dg_ioep_dropref(ep);
 }
 
-int event_add_use_ts(struct event *, const struct timespec *);
+/* extern definition from libevent */
+extern int event_add_use_ts(struct event *, const struct timespec *);
+
 static int
 dg_event_setup(ar_ioep_t ep, struct event_base *evbase)
 {
@@ -1541,7 +1553,7 @@ dg_event_setup(ar_ioep_t ep, struct event_base *evbase)
 	/* call poll_setup routine for the fd and events */
 	dg_setup(ep, &pfd, &timeout);
 
-	clock_gettime(CLOCK_MONOTONIC, &ts_timeout);
+	ar_gettime(&ts_timeout);
 	tu_tsaddmsecs(&ts_timeout, timeout);
 	
 	/* convert pollfd's events into libevent events */
@@ -1564,7 +1576,8 @@ dg_event_setup(ar_ioep_t ep, struct event_base *evbase)
 	return 0;
 	
 }
-	
+#endif /* HAVE_LIBEVENT */
+
 static int
 clnt_dg_call(ar_client_t *cl, arpcproc_t proc, axdrproc_t xargs, void *argsp, 
 	     bool_t inplace, axdrproc_t xres, void *resp, int ressize, 
@@ -1856,7 +1869,7 @@ clnt_dg_handoff(ar_client_t *src, ar_client_t *dst, cco_list_t *msglist,
 	dep = (dg_ioep_t *)ioep->iep_drv_arg;
 	assert(dep != NULL);
 
-	clock_gettime(CLOCK_MONOTONIC, &now);
+	ar_gettime(&now);
 
 	TAILQ_INIT(&list);
 	err = 0;
@@ -2442,7 +2455,7 @@ xp_dg_sco_reply(ar_svc_xprt_t *xp, ar_svc_call_obj_t sco)
 		err = 0;
 	}
 
-	clock_gettime(CLOCK_MONOTONIC, &ts1);
+	ar_gettime(&ts1);
 	tspecadd(&ts1, &dep->dep_cache_time, &ts1);
 
 	dgs->dgs_xid = sco->sco_reply.arm_xid;
