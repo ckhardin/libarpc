@@ -28,8 +28,8 @@ AC_PROG_RANLIB
 # Checks for libraries.
 # FIXME: Replace `main' with a function in `-lutil':
 #AC_CHECK_LIB([util], [main])
-# FIXME: Replace `main' with a function in `-lwrap':
-#AC_CHECK_LIB([wrap], [main])
+AC_CHECK_LIB([wrap], [hosts_access])
+AC_CHECK_LIB([event], [event_new])
 
 # Checks for header files.
 AC_HEADER_STDC

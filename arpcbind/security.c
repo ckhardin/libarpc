@@ -65,7 +65,7 @@
 
 #include "rpcbind.h"
 
-#ifdef LIBWRAP
+#ifdef HAVE_LIBWRAP
 # include <tcpd.h>
 #ifndef LIBWRAP_ALLOW_FACILITY
 # define LIBWRAP_ALLOW_FACILITY LOG_AUTH
@@ -100,7 +100,7 @@ check_access(ar_svc_req_t *rqstp, void *args, unsigned int rpcbvers)
 	struct sockaddr *addr;
 	ar_svc_xprt_t *xprt;
 	arpcproc_t proc;
-#ifdef LIBWRAP
+#ifdef HAVE_LIBWRAP
 	struct request_info req;
 #endif
 	arpcprog_t prog = 0;
@@ -157,7 +157,7 @@ check_access(ar_svc_req_t *rqstp, void *args, unsigned int rpcbvers)
 		break;
 	}
 
-#ifdef LIBWRAP
+#ifdef HAVE_LIBWRAP
 	if (addr->sa_family == AF_LOCAL) {
 		ret = TRUE;
 		goto done;
@@ -360,7 +360,7 @@ check_callit(ar_svc_req_t *rqstp, rpcb_rmtcallargs *args, int versnum)
 	ret = TRUE;
 done:
 	if (!ret) {
-#ifdef LIBWRAP
+#ifdef HAVE_LIBWRAP
 		logit(deny_severity, sa, slen, args->proc, args->prog,
 		      ": indirect call not allowed");
 #else
