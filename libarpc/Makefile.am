@@ -6,9 +6,9 @@
 ## anything like that.
 
 
-AM_CPPFLAGS = -I$(top_srcdir)/libarpc/include \
-		-DPORTMAP -DINET6 -DVERSION="\"$(VERSION)\"" \
-		-D_BSD_SOURCE -Wall -pipe  
+AM_CPPFLAGS = -I$(top_srcdir)/libarpc \
+	-D_BSD_SOURCE -DPORTMAP -DINET6 -DVERSION="\"$(VERSION)\""
+AM_CFLAGS = -Wall -pipe  
 
 lib_LTLIBRARIES = libarpc.la
 
@@ -88,11 +88,11 @@ libarpc_la_SOURCES += rpcb_prot.h pmap_prot.h
 rpcb_clnt.c: rpcb_prot.h pmap_prot.h
 
 rpcb_prot.h: $(top_srcdir)/libarpc/rpcb_prot.x
-	$(top_srcdir)/arpcgen/arpcgen -h -o rpcb_prot.h \
+	$(top_builddir)/arpcgen/arpcgen -h -o rpcb_prot.h \
 		$(top_srcdir)/libarpc/rpcb_prot.x
 
 pmap_prot.h: $(top_srcdir)/libarpc/pmap_prot.x
-	$(top_srcdir)/arpcgen/arpcgen -h -o pmap_prot.h \
+	$(top_builddir)/arpcgen/arpcgen -h -o pmap_prot.h \
 		$(top_srcdir)/libarpc/pmap_prot.x
 
 if GSS
