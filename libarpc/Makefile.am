@@ -67,7 +67,7 @@ libarpc_la_SOURCES = \
 
 ## XDR
 libarpc_la_SOURCES += xdr.c xdr_rec.c xdr_array.c xdr_float.c xdr_mem.c \
-	xdr_reference.c xdr_stdio.c xdr_print.c
+	xdr_reference.c xdr_stdio.c xdr_sizeof.c xdr_print.c
 
 ## Secure-RPC
 if GSS
@@ -84,6 +84,8 @@ endif
 
 ## Generated
 libarpc_la_SOURCES += rpcb_prot.h pmap_prot.h
+
+rpcb_clnt.c: rpcb_prot.h pmap_prot.h
 
 rpcb_prot.h: $(top_srcdir)/libarpc/rpcb_prot.x
 	$(top_srcdir)/arpcgen/arpcgen -h -o rpcb_prot.h \

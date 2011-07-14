@@ -6,6 +6,7 @@ AC_INIT([Async ONC/RPC Library], [0.5], [csabol@gmail.com], [libarpc])
 AM_INIT_AUTOMAKE
 AC_CONFIG_SRCDIR([libarpc/auth_des.c])
 AC_CONFIG_HEADER([config.h])
+AC_CONFIG_MACRO_DIR([m4])
 
 AC_ARG_ENABLE(gss,[   --enable-gss          Turn on gss api],
 	[case "${enableval}" in

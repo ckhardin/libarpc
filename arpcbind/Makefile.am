@@ -1,7 +1,6 @@
-
-AM_CPPFLAGS = -I$(top_srcdir)/libarpc/include
+AM_CPPFLAGS = -I$(top_srcdir)/libarpc
 AM_CFLAGS = -DPORTMAP -DINET6 -DLIBWRAP
-LDADD = -lwrap -lutil ../../lib/libarpc.la -lcrypt -lssl
+LDADD = -lwrap -lutil ../libarpc/libarpc.la -lcrypt -lssl
 
 BUILT_SOURCES = rpcb_prot.h pmap_prot.h
 CLEANFILES = $(BUILT_SOURCES)

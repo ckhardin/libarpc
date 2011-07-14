@@ -10,5 +10,5 @@ rm -rf depcomp missing install-sh config.status
 aclocal && \
 autoheader && \
 automake --gnu --add-missing -c && \
-autoconf &&
-glibtoolize
+autoconf
+libtoolize

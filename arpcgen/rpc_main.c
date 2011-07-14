@@ -143,7 +143,7 @@ xdrfunc *xdrfunc_head = NULL; /* xdr function list */
 xdrfunc *xdrfunc_tail = NULL; /* xdr function list */
 pid_t childpid;
 
-#if defined(LINUX) || defined(CYGWIN)
+#ifndef HAVE_STRLCPY
 size_t strlcpy(char *dst, const char *src, size_t siz)
 {
 	register char *d = dst;
@@ -168,6 +168,9 @@ size_t strlcpy(char *dst, const char *src, size_t siz)
 
 	return(s - src - 1);	/* count does not include NUL */
 }
+#endif /* HAVE_STRLCPY */
+
+#ifndef HAVE_STRLCAT
 size_t strlcat(char *dst, const char *src, size_t siz)
 {
 	register char *d = dst;
@@ -193,7 +196,7 @@ size_t strlcat(char *dst, const char *src, size_t siz)
         *d = '\0';
 	return(dlen + (s - src));	/* count does not include NUL */
 }
-#endif
+#endif /* HAVE_STRLCAT */
 
 
 int
