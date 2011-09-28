@@ -1,12 +1,18 @@
-#include <atf-c.h>
-#include <libarpc/axdr.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
+#include <libarpc/axdr.h>
 #include <libarpc/stack.h>
+
+#include <atf-c.h>
+
 #include "testobjs_xdr.h"
+
+#ifndef __UNCONST
+#define __UNCONST(a)	((void *)(unsigned long)(const void *)(a))
+#endif
 
 void test_xdr_ops(void);
 

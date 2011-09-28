@@ -20,10 +20,14 @@ if test x$gss = xtrue; then
 fi
 
 # Checks for programs.
+AC_LANG(C)
 AC_PROG_CC
+AC_PROG_CC_C_O
 AC_PROG_MAKE_SET
 AC_PROG_LIBTOOL
 AC_PROG_RANLIB
+AC_PATH_PROG([ATFRUN], [atf-run])
+AC_PATH_PROG([ATFREPORT], [atf-report])
 
 # Checks for libraries.
 # FIXME: Replace `main' with a function in `-lutil':
@@ -33,19 +37,19 @@ AC_CHECK_LIB([event], [event_new])
 
 # Checks for header files.
 AC_HEADER_STDC
+AC_HEADER_TIME
+AC_HEADER_STDBOOL
 AC_HEADER_SYS_WAIT
 AC_CHECK_HEADERS([arpa/inet.h fcntl.h limits.h netdb.h netinet/in.h stddef.h stdint.h stdlib.h string.h sys/file.h sys/ioctl.h sys/param.h sys/socket.h sys/stat.h sys/time.h syslog.h unistd.h time.h ifaddrs.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
-AC_TYPE_UID_T
 AC_C_INLINE
+AC_TYPE_UID_T
 AC_TYPE_MODE_T
 AC_TYPE_OFF_T
 AC_TYPE_PID_T
 AC_TYPE_SIZE_T
-AC_HEADER_TIME
-AC_HEADER_STDBOOL
 
 # Checks for library functions.
 AC_FUNC_ALLOCA

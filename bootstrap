@@ -7,8 +7,11 @@ rm -rf Makefile.in aclocal.m4 config.log config.h
 rm -rf depcomp missing install-sh config.status
 
 # Run the autoconf steps
-aclocal && \
+LIBTOOLIZE=`which glibtoolize`
+if [ "x$LIBTOOLIZE" = "x" ]; then LIBTOOLIZE=libtoolize; fi
+$LIBTOOLIZE --copy --automake --force && \
+aclocal -I m4 $ACLOCAL_FLAGS && \
 autoheader && \
-automake --gnu --add-missing -c && \
-autoconf
-libtoolize
+autoconf && \
+automake --gnu --add-missing --copy
+rm -rf autom4te.cache config.log stamp-h1
