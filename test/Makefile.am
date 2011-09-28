@@ -1,6 +1,6 @@
 ACLOCAL_AMFLAGS = -I m4
 AM_CPPFLAGS = -I$(top_srcdir)/libarpc
-LDADD = ../libarpc/libarpc.la -latf-c
+LDADD = ../libarpc/libarpc.la -latf-c -lssl
 CLEANFILES =
 EXTRA_DIST =
 
