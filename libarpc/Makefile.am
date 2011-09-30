@@ -14,6 +14,21 @@ lib_LTLIBRARIES = libarpc.la
 libarpc_la_LDFLAGS = -lpthread -lssl
 
 # Only files ported so far
+libarpc_la_HEADERS = \
+	arpc.h arpc_io.h arpc_msg.h arpcent.h \
+	auth.h auth_des.h auth_unix.h \
+	axdr.h xdr_com.h \
+	clnt.h \
+	compat.h \
+	pmap_clnt.h \
+	rpc_com.h rpcb_clnt.h \
+	stack.h \
+	stat.h \
+	svc.h svc_auth.h \
+	types.h \
+	vcd_tls.h \
+	namespace.h un-namespace.h reentrant.h
+
 libarpc_la_SOURCES = \
 	rpc_prot.c rpc_io.c rpc_vc.c rpc_dg.c rpc_commondata.c \
 	rpcb_clnt.c rpcb_prot.c rpcb_st_xdr.c rpc_generic.c \
