@@ -1271,8 +1271,8 @@ op_entry_cmp(op_entry *a, op_entry *b, int size)
 	return 0;
 }
 
-void
-test_xdr_ops(void)
+ATF_TC_WITHOUT_HEAD(test_xdr_ops);
+ATF_TC_BODY(test_xdr_ops, tc)
 {
 	op_entry op_ent;
 	int num_entries;
@@ -1406,4 +1406,10 @@ test_xdr_ops(void)
 			      sizeof(test_u), (compare_t) test_u_cmp);
 
 	ATF_REQUIRE_EQ(errcnt, 0);
+}
+
+ATF_TP_ADD_TCS(tp)
+{
+	ATF_TP_ADD_TC(tp, test_xdr_ops);
+	return atf_no_error();
 }

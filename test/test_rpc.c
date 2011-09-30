@@ -32,7 +32,6 @@ const char *conn_type_to_netid[] = {"local", "tcp", "udp" };
 const char *client_mode_to_str[] = {"sync","async copy", "async inplace",
 				    "arpcgen sync", "arpcgen async copy"};
 
-bool arpc_test1(void);
 
 /* Mutex's and conditions for svc/clnt */
 bool_t client_rdy;
@@ -987,8 +986,8 @@ static void
 	pthread_exit(NULL);
 }
 
-bool
-arpc_test1(void)
+ATF_TC_WITHOUT_HEAD(test_arpc_ops);
+ATF_TC_BODY(test_arpc_ops, tc)
 {
 	int tst_errs;
 
@@ -1031,8 +1030,11 @@ arpc_test1(void)
 	tst_errs = (clnt_state.tst_errs) + (svc_state.tst_errs);
 
 	fprintf(stderr, "\nfinished with %d errors\n", tst_errs);
-	if (tst_errs > 0) {
-		return 1;
-	}
-	return 0;
+	ATF_REQUIRE(tst_errs == 0);
+}
+
+ATF_TP_ADD_TCS(tp)
+{
+	ATF_TP_ADD_TC(tp, test_arpc_ops);
+	return atf_no_error();
 }

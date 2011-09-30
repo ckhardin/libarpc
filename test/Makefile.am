@@ -4,15 +4,16 @@ LDADD = ../libarpc/libarpc.la -latf-c -lssl
 CLEANFILES =
 EXTRA_DIST =
 
-tests_PROGRAMS = t_libarpc
+tests_PROGRAMS = t_xdr t_rpc
 tests_DATA = Atffile
 
-t_libarpc_SOURCES = t_libarpc.c test_xdr.c test_rpc.c test_rpc.h
+t_xdr_SOURCES = test_xdr.c
+t_rpc_SOURCES = test_rpc.c test_rpc.h
 
 ## Generated
 EXTRA_DIST += testobjs_xdr.x testobjs_rpc.x
-nodist_t_libarpc_SOURCES = testobjs_xdr.h testobjs_rpc.h
-nodist_t_libarpc_SOURCES += testobjs_xdr.c testobjs_rpc.c
+nodist_t_xdr_SOURCES = testobjs_xdr.h testobjs_xdr.c
+nodist_t_rpc_SOURCES = testobjs_rpc.h testobjs_rpc.c
 test_xdr.$(OBJEXT): testobjs_xdr.h 
 test_rpc.$(OBJEXT): testobjs_rpc.h
 
