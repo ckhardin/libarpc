@@ -48,7 +48,8 @@ libarpc_la_SOURCES = \
 	rpc_prot.c rpc_io.c rpc_vc.c rpc_dg.c rpc_commondata.c \
 	rpcb_clnt.c rpcb_prot.c rpcb_st_xdr.c rpc_generic.c \
 	pmap_prot.c pmap_prot2.c \
-	auth_none.c clnt_generic.c \
+	auth_none.c auth_unix.c authunix_prot.c \
+	clnt_generic.c \
 	svc_auth.c svc.c svc_generic.c \
 	vcd_tls.c \
 	stack.c

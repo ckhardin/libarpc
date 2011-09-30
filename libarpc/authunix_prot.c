@@ -1,4 +1,7 @@
 /*
+ * Copyright (c) 2011  Charles Hardin <ckhardin@gmail.com>
+ * All Rights Reserved
+ *
  * Copyright (c) 2009, Sun Microsystems, Inc.
  * All rights reserved.
  *
@@ -38,30 +41,28 @@
 #include <sys/cdefs.h>
 #include <assert.h>
 
-#include <rpc/types.h>
-#include <rpc/xdr.h>
-#include <rpc/auth.h>
-#include <rpc/auth_unix.h>
+#include <libarpc/types.h>
+#include <libarpc/axdr.h>
+#include <libarpc/auth.h>
+#include <libarpc/auth_unix.h>
 #include "un-namespace.h"
 
 /*
  * XDR for unix authentication parameters.
  */
 bool_t
-xdr_authunix_parms(xdrs, p)
-	XDR *xdrs;
-	struct authunix_parms *p;
+xdr_authunix_parms(axdr_state_t *xdrs, ar_authunix_parms_t *p)
 {
 
 	assert(xdrs != NULL);
 	assert(p != NULL);
 
-	if (xdr_u_long(xdrs, &(p->aup_time))
-	    && xdr_string(xdrs, &(p->aup_machname), MAX_MACHINE_NAME)
-	    && xdr_int(xdrs, &(p->aup_uid))
-	    && xdr_int(xdrs, &(p->aup_gid))
-	    && xdr_array(xdrs, (caddr_t *)&(p->aup_gids),
-		    &(p->aup_len), NGRPS, sizeof(int), (xdrproc_t)xdr_int) ) {
+	if (axdr_u_long(xdrs, &(p->aup_time))
+	    && axdr_string(xdrs, &(p->aup_machname), MAX_MACHINE_NAME)
+	    && axdr_int(xdrs, &(p->aup_uid))
+	    && axdr_int(xdrs, &(p->aup_gid))
+	    && axdr_array(xdrs, (caddr_t *)&(p->aup_gids),
+		    &(p->aup_len), NGRPS, sizeof(int), (axdrproc_t)axdr_int)) {
 		return (TRUE);
 	}
 	return (FALSE);

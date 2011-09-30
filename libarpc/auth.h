@@ -287,10 +287,10 @@ __END_DECLS
 #define AR_AUTH_NONE	0		/* no authentication */
 #define	AR_AUTH_NULL	0		/* backward compatibility */
 #define	AR_AUTH_SYS	1		/* unix style (uid, gids) */
-#define AR_AUTH_UNIX	AUTH_SYS
+#define AR_AUTH_UNIX	AR_AUTH_SYS
 #define	AR_AUTH_SHORT	2		/* short hand unix style */
 #define AR_AUTH_DH	3		/* for Diffie-Hellman mechanism */
-#define AR_AUTH_DES	AUTH_DH		/* for backward compatibility */
+#define AR_AUTH_DES	AR_AUTH_DH	/* for backward compatibility */
 #define AR_AUTH_KERB	4		/* kerberos style */
 
 #endif /* !_LIBARPC_AUTH_H */
