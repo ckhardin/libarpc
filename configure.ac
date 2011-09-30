@@ -2,10 +2,11 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.59)
-AC_INIT([Async ONC/RPC Library], [0.5], [csabol@gmail.com], [libarpc])
-AM_INIT_AUTOMAKE
-AC_CONFIG_SRCDIR([libarpc/auth_des.c])
-AC_CONFIG_HEADER([config.h])
+AC_INIT(libarpc, 0.5)
+AM_INIT_AUTOMAKE(libarpc, 0.5)
+LT_INIT
+AC_CONFIG_SRCDIR([libarpc/stack.c])
+AC_CONFIG_HEADER([config.h:config.h.in])
 AC_CONFIG_MACRO_DIR([m4])
 
 AC_ARG_ENABLE(gss,[   --enable-gss          Turn on gss api],
