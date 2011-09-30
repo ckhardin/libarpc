@@ -14,6 +14,7 @@ lib_LTLIBRARIES = libarpc.la
 libarpc_la_LDFLAGS = -lpthread -lssl
 
 # Only files ported so far
+libarpc_ladir = $(includedir)/libarpc
 libarpc_la_HEADERS = \
 	arpc.h arpc_io.h arpc_msg.h arpcent.h \
 	auth.h auth_des.h auth_unix.h \
