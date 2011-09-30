@@ -8,7 +8,9 @@
 ACLOCAL_AMFLAGS = -I m4
 AM_CPPFLAGS = -I$(top_srcdir)/libarpc \
 	-D_BSD_SOURCE -DPORTMAP -DINET6 -DVERSION="\"$(VERSION)\""
-AM_CFLAGS = -Wall -pipe  
+AM_CFLAGS = -Wall -pipe
+CLEANFILES =
+EXTRA_DIST =
 
 lib_LTLIBRARIES = libarpc.la
 libarpc_la_LDFLAGS = -lpthread -lssl
@@ -18,17 +20,13 @@ libarpc_ladir = $(includedir)/libarpc
 libarpc_la_HEADERS = \
 	arpc.h arpc_io.h arpc_msg.h arpcent.h \
 	auth.h auth_des.h auth_unix.h \
-	axdr.h xdr_com.h \
-	clnt.h \
-	compat.h \
-	pmap_clnt.h \
-	rpc_com.h rpcb_clnt.h \
+	axdr.h \
+	clnt.h pmap_clnt.h rpcb_clnt.h \
 	stack.h \
 	stat.h \
 	svc.h svc_auth.h \
 	types.h \
-	vcd_tls.h \
-	namespace.h un-namespace.h reentrant.h
+	vcd_tls.h
 
 libarpc_la_SOURCES = \
 	rpc_prot.c rpc_io.c rpc_vc.c rpc_dg.c rpc_commondata.c \
@@ -38,7 +36,9 @@ libarpc_la_SOURCES = \
 	clnt_generic.c \
 	svc_auth.c svc.c svc_generic.c \
 	vcd_tls.c \
-	stack.c
+	stack.c \
+ 	rpc_com.h xdr_com.h \
+	compat.h namespace.h un-namespace.h reentrant.h
 
 # FIXME
 #libarpc_la_SOURCES = auth_none.c auth_unix.c authunix_prot.c \
@@ -70,9 +70,10 @@ endif
 ## auth_time.c auth_des.c authdes_prot.c 
 
 ## Generated
+EXTRA_DIST += rpcb_prot.x pmap_prot.x
 nodist_libarpc_la_SOURCES = rpcb_prot.h pmap_prot.h
 
-rpcb_clnt.$(OBJEXT): rpcb_prot.h pmap_prot.h
+rpcb_clnt.c: rpcb_prot.h pmap_prot.h
 
 rpcb_prot.h: $(top_srcdir)/libarpc/rpcb_prot.x
 	$(top_builddir)/arpcgen/arpcgen -h -o rpcb_prot.h \
@@ -81,6 +82,8 @@ rpcb_prot.h: $(top_srcdir)/libarpc/rpcb_prot.x
 pmap_prot.h: $(top_srcdir)/libarpc/pmap_prot.x
 	$(top_builddir)/arpcgen/arpcgen -h -o pmap_prot.h \
 		$(top_srcdir)/libarpc/pmap_prot.x
+
+CLEANFILES += rpcb_prot.h pmap_prot.h
 
 dist_man_MANS = axdr.3 bindresvport.3 des_crypt.3 \
 	getnetconfig.3 getnetpath.3 getrpcent.3 getrpcport.3 \

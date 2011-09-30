@@ -8,7 +8,7 @@ CLEANFILES = $(BUILT_SOURCES)
 bin_PROGRAMS = arpcbind
 arpcbind_SOURCES = check_bound.c rpcb_stat.c rpcb_svc_4.c rpcbind.c \
 	pmap_svc.c rpcb_svc.c rpcb_svc_com.c security.c warmstart.c \
-	util.c rpcb_prot.h pmap_prot.h
+	util.c rpcb_prot.h pmap_prot.h rpcbind.h
 
 rpcb_prot.h: $(top_srcdir)/libarpc/rpcb_prot.x
 	$(top_builddir)/arpcgen/arpcgen -h -o rpcb_prot.h \

@@ -50,8 +50,8 @@
 /*
  * XDR for unix authentication parameters.
  */
-bool_t
-xdr_authunix_parms(axdr_state_t *xdrs, ar_authunix_parms_t *p)
+axdr_ret_t
+axdr_authunix_parms(axdr_state_t *xdrs, ar_authunix_parms_t *p)
 {
 
 	assert(xdrs != NULL);

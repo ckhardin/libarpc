@@ -298,7 +298,7 @@ authunix_refresh(ar_auth_t *auth, void *dummy)
 	(void)gettimeofday(&now, NULL);
 	aup.aup_time = now.tv_sec;
 	xdrs.x_op = AXDR_ENCODE;
-	XDR_SETPOS(&xdrs, 0);
+	axdr_setpos(&xdrs, 0);
 	stat = axdr_authunix_parms(&xdrs, &aup);
 	if (! stat)
 		goto done;
@@ -308,7 +308,7 @@ done:
 	/* free the struct authunix_parms created by deserializing */
 	xdrs.x_op = AXDR_FREE;
 	(void)axdr_authunix_parms(&xdrs, &aup);
-	XDR_DESTROY(&xdrs);
+	axdr_destroy(&xdrs);
 	return (stat);
 }
 
