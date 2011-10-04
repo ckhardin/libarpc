@@ -504,9 +504,22 @@ axdrrec_test_async(axdrproc_t testfunc, void *testobj,
 }
 
 static void
+axdr_test_print(axdrproc_t testfunc, void *testobj)
+{
+	axdr_state_t xdr;
+
+	/* testout stringify */
+	ATF_REQUIRE(axdr_fprint_create(&xdr, stdout, "axdr_test:") == 0);
+	ATF_REQUIRE((*testfunc)(&xdr, testobj) == AXDR_DONE);
+	axdr_destroy(&xdr);
+}
+
+static void
 axdr_test(const char *name, axdrproc_t testfunc,
 	  void *testobj, size_t size, compare_t cmp)
 {
+	printf("%s: print:\n", name);
+	axdr_test_print(testfunc, testobj);
 	printf("%s: sync:\n", name);
 	axdr_test_synchronous(testfunc, testobj, size, cmp);
 	printf("\n%s: async:\n", name);
