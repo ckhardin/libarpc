@@ -402,6 +402,16 @@ axdrrec_test_asyncrec(axdrproc_t testfunc, void *testobj,
 	obj.off = 0;
 
 	for (;;) {
+		ret = axdrrec_skiprecord(&xdr);
+		if (ret == AXDR_DONE) {
+			break;
+		}
+
+		obj.state++;
+		ATF_REQUIRE_MSG(ret == AXDR_WAITING,
+				"skip error return=%d", ret);
+	}
+	for (;;) {
 		ret = (*testfunc)(&xdr, result);
 		if (ret == AXDR_DONE) {
 			break;
@@ -565,8 +575,6 @@ test_u_cmp(test_u *a, test_u *b, int size)
 ATF_TC_WITHOUT_HEAD(test_xdr_types);
 ATF_TC_BODY(test_xdr_types, tc)
 {
-	axdr_ret_t ret;
-	axdr_state_t xdr;
 	int i = 42;
 	quad_t q = -8589934592LL;
 	bool_t b = TRUE;
@@ -594,6 +602,50 @@ ATF_TC_BODY(test_xdr_types, tc)
 		  &str_s, sizeof(string_s), (compare_t) string_s_cmp);
 	axdr_test("axdr_test_u", (axdrproc_t) axdr_test_u,
 		  &my_test_u, sizeof(test_u), (compare_t) test_u_cmp);
+}
+
+ATF_TC_WITHOUT_HEAD(test_xdr_opaque);
+
+struct my_opaque {
+	char bytes[8];
+};
+
+static axdr_ret_t
+axdr_my_opaque(axdr_state_t *xdrs, struct my_opaque *objp)
+{
+	return axdr_opaque(xdrs, objp->bytes, 8);
+}
+
+static axdr_ret_t
+axdr_my_opaque_1(axdr_state_t *xdrs, struct my_opaque *objp)
+{
+	return axdr_opaque(xdrs, objp->bytes, 1);
+}
+
+static axdr_ret_t
+axdr_my_opaque_2(axdr_state_t *xdrs, struct my_opaque *objp)
+{
+	return axdr_opaque(xdrs, objp->bytes, 2);
+}
+
+static axdr_ret_t
+axdr_my_opaque_5(axdr_state_t *xdrs, struct my_opaque *objp)
+{
+	return axdr_opaque(xdrs, objp->bytes, 5);
+}
+
+ATF_TC_BODY(test_xdr_opaque, tc)
+{
+	char bytes[] = { 0xde, 0xad, 0xbe, 0xef, 0xfa, 0xda, 0xba, 0xaa };
+
+	axdr_test("axdr_opaque", (axdrproc_t) axdr_my_opaque,
+		  bytes, sizeof(bytes), (compare_t) memcmp);
+	axdr_test("axdr_opaque_1", (axdrproc_t) axdr_my_opaque_1,
+		  bytes, 1, (compare_t) memcmp);
+	axdr_test("axdr_opaque_2", (axdrproc_t) axdr_my_opaque_2,
+		  bytes, 2, (compare_t) memcmp);
+	axdr_test("axdr_opaque_5", (axdrproc_t) axdr_my_opaque_5,
+		  bytes, 5, (compare_t) memcmp);
 }
 
 ATF_TC_WITHOUT_HEAD(test_xdr_complex);
@@ -1339,6 +1391,7 @@ ATF_TC_BODY(test_xdr_serialize, tc)
 ATF_TP_ADD_TCS(tp)
 {
 	ATF_TP_ADD_TC(tp, test_xdr_types);
+	ATF_TP_ADD_TC(tp, test_xdr_opaque);
 	ATF_TP_ADD_TC(tp, test_xdr_serialize);
 	ATF_TP_ADD_TC(tp, test_xdr_complex);
 	ATF_TP_ADD_TC(tp, test_xdr_pointers);
