@@ -7,10 +7,11 @@
 #include <libarpc/axdr.h>
 #include <libarpc/arpc.h>
 #include <libarpc/clnt.h>
-/* #include "../lib/rpc/rpcb_prot.h" */ /* Not testing rpcb right now */
+
 #define _RPC_NETDB_H 1
 #include <netdb.h>
 #include <assert.h>
+
 #include "testobjs_rpc.h"
 #include "test_rpc.h"
 
@@ -145,12 +146,11 @@ test_svc_req_cleanup(void)
 {
 	svc_req_elem_t *req_elem;
 
-	while(!TAILQ_EMPTY(&svc_state.req_list)) {
-		req_elem = TAILQ_FIRST(&svc_state.req_list);
+	while ((req_elem = TAILQ_FIRST(&svc_state.req_list)) != NULL) {
 		TAILQ_REMOVE(&svc_state.req_list, req_elem, req_listent);
 		
 		fprintf(stderr, "svc cleanup removing defered req: %d\n", 
-		    req_elem->reqno);
+			req_elem->reqno);
 		free(req_elem);
 	}
 
@@ -161,8 +161,11 @@ test_svc_req_cleanup(void)
 bool_t
 test_rpc_1_svc(test_data argp, test_data *resp, ar_svc_req_t *rqstp)
 {
-	int *p_cmd_ctr = &svc_state.tst_cmd_ctr;
-	svc_tst_t *p_tst = &svc_state.tst_lst[*p_cmd_ctr];
+	int *p_cmd_ctr;
+	svc_tst_t *p_tst;
+
+	p_cmd_ctr = &svc_state.tst_cmd_ctr;
+	p_tst = &svc_state.tst_lst[*p_cmd_ctr];
 
 #if DEBUG_SVC_RECV
 	fprintf(stderr, "svc recv: %d (%u)\n", argp.val, rqstp->rq_xid);
@@ -183,10 +186,10 @@ test_rpc_1_svc(test_data argp, test_data *resp, ar_svc_req_t *rqstp)
 	(*p_cmd_ctr)++;
 	p_tst = &svc_state.tst_lst[*p_cmd_ctr];
 
-	while (1) {
+	for (;;) {
 #if DEBUG_SVC_CMDS
 		fprintf(stderr, "svc: offset: %d, cmd: %d\n",
-		    *p_cmd_ctr, p_tst->cmd);
+			*p_cmd_ctr, p_tst->cmd);
 #endif
 
 		switch(p_tst->cmd) {
@@ -223,8 +226,9 @@ test_rpc_1_svc(test_data argp, test_data *resp, ar_svc_req_t *rqstp)
 			goto svc_statem_done;
 			break;
 		default:
-			fprintf(stderr, "svc cmd (offset: %d) not handled: %d\n",
-			    *p_cmd_ctr, p_tst->cmd);
+			fprintf(stderr,
+				"svc cmd (offset: %d) not handled: %d\n",
+				*p_cmd_ctr, p_tst->cmd);
 			abort();
 			break;
 		}
@@ -239,7 +243,7 @@ svc_statem_done:
 
 static void
 test_clnt_callback(ar_clnt_call_obj_t handle, void *arg,
-    const arpc_err_t *stat, void *result)
+		   const arpc_err_t *stat, void *result)
 {
 	struct test_data *ret;
 	int ctr = clnt_state.tst_cmd_ctr;
@@ -497,16 +501,18 @@ test_clnt_req_cleanup(void)
 static void
 test_clnt_statem(void)
 {
-	int *p_cmd_ctr = &clnt_state.tst_cmd_ctr;
-	clnt_tst_t *p_tst = &clnt_state.tst_lst[*p_cmd_ctr];
 	int err;
 	client_elem_t *client_elem;
+	int *p_cmd_ctr;
+	clnt_tst_t *p_tst;
 
+	p_cmd_ctr = &clnt_state.tst_cmd_ctr;
+	p_tst = &clnt_state.tst_lst[*p_cmd_ctr];
 
-	while(1) {
+	for (;;) {
 #if DEBUG_CLNT_CMDS
 		fprintf(stderr, "clnt: offset: %d, cmd: %d\n",
-		    *p_cmd_ctr, p_tst->cmd);
+			*p_cmd_ctr, p_tst->cmd);
 #endif
 
 		switch(p_tst->cmd) {
@@ -525,14 +531,16 @@ test_clnt_statem(void)
 		case CLNT_CMD_SET_DEF_CLNT:
 			if ((p_tst->val1 < 0) ||
 			    (p_tst->val1 >= SOCK_TYPE_NUM)) {
-				fprintf(stderr, "sock type out of range %d [%d,%d)\n",
-				    p_tst->val1, 0, SOCK_TYPE_NUM);
+				fprintf(stderr,
+					"sock type out of range %d [%d,%d)\n",
+					p_tst->val1, 0, SOCK_TYPE_NUM);
 				abort();
 			}
 			err = test_client_find(p_tst->val1, &client_elem);
 			if (err != 0) { 
-				fprintf(stderr, "cannot set default client to %d\n",
-				    p_tst->val1);
+				fprintf(stderr,
+					"cannot set default client to %d\n",
+					p_tst->val1);
 				abort();
 			}
 #if DEBUG_PRINT_XTRA_INFO
@@ -547,8 +555,9 @@ test_clnt_statem(void)
 		case CLNT_CMD_SET_DEF_MODE:
 			if ((p_tst->val1 < 0) ||
 			    (p_tst->val1 >= CLNT_MODE_NUM)) {
-				fprintf(stderr, "clnt mode out of range %d [%d, %d)\n",
-				    p_tst->val1, 0, CLNT_MODE_NUM);
+				fprintf(stderr,
+					"clnt mode out of range %d [%d, %d)\n",
+					p_tst->val1, 0, CLNT_MODE_NUM);
 				abort();
 			}
 #if DEBUG_PRINT_XTRA_INFO
@@ -573,8 +582,9 @@ test_clnt_statem(void)
 			goto clnt_statem_done;
 			break;
 		default:
-			fprintf(stderr, "clnt cmd (offset: %d) not handled: %d\n",
-			    *p_cmd_ctr, p_tst->cmd);
+			fprintf(stderr,
+				"clnt cmd (offset: %d) not handled: %d\n",
+				*p_cmd_ctr, p_tst->cmd);
 			abort();
 			break;
 		}
@@ -706,7 +716,9 @@ test_client_create(ar_ioctx_t ctx, sock_type_e client_type)
 #endif
 	/* Create client */
 	err = ar_clnt_tli_create(ctx, netid, p_nb, 
-	    TEST_RPC, TEST_RPC_VERS, &client_elem->attr, &errp, &client_elem->client);
+				 TEST_RPC, TEST_RPC_VERS,
+				 &client_elem->attr, &errp,
+				 &client_elem->client);
 	if (err != 0) {
 		fprintf(stderr, "unable to create ping client: %d\n", err);
 		abort();
@@ -757,8 +769,8 @@ test_client_destroy(sock_type_e client_type)
 	return 0;
 }
 
-static void 
-*client_thread(void *pt)
+static void *
+client_thread(void *pt)
 {
 	client_elem_t *client_elem;
 	ar_ioctx_t ctx;
@@ -908,7 +920,8 @@ test_service_create(ar_ioctx_t ctx, sock_type_e svc_type)
 		abort();
 	}
 
-	err = ar_svc_reg(svc_elem->service, &test_rpc_1_lookup, TEST_RPC, TEST_RPC_VERS);
+	err = ar_svc_reg(svc_elem->service, &test_rpc_1_lookup,
+			 TEST_RPC, TEST_RPC_VERS);
 	if (err != 0) {
 		fprintf(stderr, "svc (%s) reg failed: %d\n",
 		    netid, err);
@@ -922,8 +935,8 @@ test_service_create(ar_ioctx_t ctx, sock_type_e svc_type)
 	return 0;
 }
 
-static void 
-*server_thread(void *pt)
+static void *
+server_thread(void *pt)
 {
 	int i;
 	ar_ioctx_t ctx;
@@ -946,7 +959,7 @@ static void
 	for (i=0; i < SOCK_TYPE_NUM; i++) {
 		test_service_create(ctx, i);
 	}
-	
+
 	/* Indicate to the client that we're ready */
 	pthread_mutex_lock(&server_rdy_mtx);
 	server_rdy = TRUE;
@@ -966,11 +979,13 @@ static void
 	test_svc_req_cleanup();
 
 	/* Unreg the services and destroy them */
-	while(!TAILQ_EMPTY(&svc_state.service_list)) {
+	while ((svc_elem = TAILQ_FIRST(&svc_state.service_list)) != NULL) {
 		svc_elem = TAILQ_FIRST(&svc_state.service_list);
-		TAILQ_REMOVE(&svc_state.service_list, svc_elem, service_listent);
+		TAILQ_REMOVE(&svc_state.service_list,
+			     svc_elem, service_listent);
 		
-		ar_svc_unreg(svc_elem->service, &test_rpc_1_lookup, TEST_RPC, TEST_RPC_VERS);
+		ar_svc_unreg(svc_elem->service, &test_rpc_1_lookup,
+			     TEST_RPC, TEST_RPC_VERS);
 		ar_svc_destroy(svc_elem->service);
 		ar_svc_attr_destroy(&svc_elem->attr);
 		
@@ -990,7 +1005,6 @@ ATF_TC_WITHOUT_HEAD(test_arpc_ops);
 ATF_TC_BODY(test_arpc_ops, tc)
 {
 	int tst_errs;
-
 	pthread_t pthreads[NUM_PTHREADS];
 	pthread_attr_t pt_attr;
 	
@@ -1018,7 +1032,7 @@ ATF_TC_BODY(test_arpc_ops, tc)
 	pthread_join(pthreads[1], NULL);
 	
 	pthread_attr_destroy(&pt_attr);
-	
+
 	/* Destroy mutex vars and conds */
 	pthread_mutex_destroy(&client_rdy_mtx);
 	pthread_mutex_destroy(&server_rdy_mtx);
