@@ -313,7 +313,7 @@ axdr_test_synchronous(axdrproc_t testfunc,
 	/* encode */
 	axdrmem_create(&src, (char*) buf1, serialized_size, AXDR_ENCODE);
 	ATF_REQUIRE_MSG((rval = testfunc(&src, testobj)) == AXDR_DONE,
-			"Unexpected encode return %d\n", rval);
+			"Unexpected encode return %d", rval);
 
 	/* decode */
 	axdrmem_create(&dst, (char *) buf1, serialized_size, AXDR_DECODE);
@@ -346,10 +346,10 @@ axdrrec_test_asyncrec(axdrproc_t testfunc, void *testobj,
 
 	ATF_REQUIRE_MSG((err = axdrrec_create(&xdr, size1, size2, &obj,
 					      &atest_read, &atest_write)) == 0,
-			"unable to create src xrec err=%d\n", err);
+			"unable to create src xrec err=%d", err);
 
 	ATF_REQUIRE_MSG((err = astk_init(&stack)) == 0,
-			"unable to create async stack err=%d\n", err);
+			"unable to create async stack err=%d", err);
 
 	xdr.x_async = &stack;
 
@@ -370,7 +370,7 @@ axdrrec_test_asyncrec(axdrproc_t testfunc, void *testobj,
 
 		obj.state++;
 		ATF_REQUIRE_MSG(ret == AXDR_WAITING,
-				"encode error return=%d\n", ret);
+				"encode error return=%d", ret);
 	}
 
 	/* flush it */
@@ -382,7 +382,7 @@ axdrrec_test_asyncrec(axdrproc_t testfunc, void *testobj,
 
 		obj.state++;
 		ATF_REQUIRE_MSG(ret == AXDR_WAITING,
-				"flush error return=%d\n", ret);
+				"flush error return=%d", ret);
 	}
 
 	if (log) {
@@ -409,7 +409,7 @@ axdrrec_test_asyncrec(axdrproc_t testfunc, void *testobj,
 
 		obj.state++;
 		ATF_REQUIRE_MSG(ret == AXDR_WAITING,
-				"decode error return=%d\n", ret);
+				"decode error return=%d", ret);
 	}
 
 	free(obj.buf);
@@ -443,7 +443,7 @@ axdrrec_test_async(axdrproc_t testfunc, void *testobj,
 	xdr.x_private = &obj;
 
 	ATF_REQUIRE_MSG((err = astk_init(&stack)) == 0,
-			"unable to create async stack err=%d\n", err);
+			"unable to create async stack err=%d", err);
 	xdr.x_async = &stack;
 
 	obj.state = 0;
@@ -463,11 +463,11 @@ axdrrec_test_async(axdrproc_t testfunc, void *testobj,
 
 		obj.state++;
 		ATF_REQUIRE_MSG(ret == AXDR_WAITING,
-				"encode error return=%d\n", ret);
+				"encode error return=%d", ret);
 	}
 
 	ATF_REQUIRE_MSG(obj.off == serialized_size,
-			"encode length mismatch %d/%zu\n",
+			"encode length mismatch %d/%zu",
 			obj.off, serialized_size);
 
 	printf("encoded\n");
@@ -491,7 +491,7 @@ axdrrec_test_async(axdrproc_t testfunc, void *testobj,
 
 		obj.state++;
 		ATF_REQUIRE_MSG(ret == AXDR_WAITING,
-				"decode error return=%d\n", ret);
+				"decode error return=%d", ret);
 	}
 
 	free(obj.buf);
@@ -1284,7 +1284,7 @@ axdr_test_deserialize(char *buf, size_t buflen,
 	axdrmem_create(&src, buf, buflen, AXDR_DECODE);
 	if (expectedobj == NULL) {
 		ATF_REQUIRE_MSG((rval = testfunc(&src, dst)) == AXDR_ERROR,
-				"unexpected return=%d\n",  rval);
+				"unexpected return=%d",  rval);
 		axdr_free(testfunc, dst);
 		axdr_destroy(&src);
 		free(dst);
@@ -1292,9 +1292,9 @@ axdr_test_deserialize(char *buf, size_t buflen,
 	}
 
 	ATF_REQUIRE_MSG((rval = testfunc(&src, dst)) == AXDR_DONE,
-			"unexpected return=%d\n",  rval);
+			"unexpected return=%d",  rval);
 	ATF_REQUIRE_MSG(cmp(dst, expectedobj, size) == 0,
-			"improper deserialization\n");
+			"improper deserialization");
 	axdr_free(testfunc, dst);
 	axdr_destroy(&src);
 	free(dst);
