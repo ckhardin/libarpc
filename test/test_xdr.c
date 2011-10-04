@@ -14,11 +14,6 @@
 #define __UNCONST(a)	((void *)(unsigned long)(const void *)(a))
 #endif
 
-void test_xdr_ops(void);
-
-typedef void errorctx_t;
-int errcnt;
-
 static unsigned char pkgstatus_blob[] = {
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04,
 	0x00, 0x00, 0x00, 0x07, 0x63, 0x75, 0x72, 0x72,
@@ -524,84 +519,6 @@ static axdr_ret_t atest_getbytes(axdr_state_t *, char *, size_t);
 static axdr_ret_t atest_putbytes(axdr_state_t *, const char *, size_t);
 static void atest_destroy(axdr_state_t *);
 
-static struct axdr_ops_s aops = {
-	&atest_getlong,
-	&atest_putlong,
-	&atest_getbytes,
-	&atest_putbytes,
-	NULL,
-	NULL,
-	NULL,
-	&atest_destroy,
-	NULL,
-	NULL,
-	NULL,
-	NULL,
-};
-
-static void
-hexdump(char *buf, size_t len)
-{
-	int i;
-	for (i = 0; i < len; i++) {
-		if (i != 0 && (i % 16) == 0) {
-			printf("\n");
-		}
-		printf("%02hhx ", buf[i]);
-	}
-	printf("\n");
-}
-
-static void
-error(errorctx_t *dummy, const char *reason, ...) {
-	va_list ap;
-	va_start(ap, reason);
-	vfprintf(stderr, reason, ap);
-	va_end(ap);
-	fprintf(stderr, "\n");
-	errcnt++;
-}
-
-typedef int (*compare_t)(const void*, const void*, size_t);
-
-/**
- * Compares an encoded/decoded object with the original.
- */
-static void
-axdr_test_synchronous(errorctx_t *ectx, axdrproc_t testfunc, void *testobj,
-		      size_t size, axdr_state_t *xsrc, axdr_state_t *xdst,
-		      compare_t cmp)
-{
-	void *dst = calloc(1, size);
-	axdr_ret_t rval;
-
-	if (dst == NULL) {
-		error(ectx, "Out of memory.");
-		return;
-	}
-	rval = testfunc(xsrc, testobj);
-	if (rval != AXDR_DONE) {
-		free(dst);
-		error(ectx, "Unexpected encode return %d", rval);
-		return;
-	}
-	rval = testfunc(xdst, dst);
-	if (rval != AXDR_DONE) {
-		axdr_free(testfunc, dst);
-		free(dst);
-		error(ectx, "Unexpected decode return %d", rval);
-		return;
-	}
-	if (cmp(testobj, dst, size) != 0) {
-		axdr_free(testfunc, dst);
-		free(dst);
-		error(ectx, "Objects don't match.");
-		return;
-	}
-	axdr_free(testfunc, dst);
-	free(dst);
-}
-
 typedef struct asyncobj_s {
 	int         state;
 	int         off;
@@ -688,8 +605,9 @@ atest_getlong(axdr_state_t *xdr, int32_t *lp)
 	long val;
 	size_t len;
 	int err;
-	int off = 0;
+	int off;
 
+	off = 0;
 	rval = axdr_async_setup(xdr, &atest_getlong, &cleanup, &off,
 				sizeof(*lp), (void**)&buf);
 	if (rval != AXDR_DONE) {
@@ -729,8 +647,9 @@ atest_putlong(axdr_state_t *xdr, const int32_t *lp)
 	long val;
 	size_t len;
 	int err;
-	int off = 0;
+	int off;
 
+	off = 0;
 	rval = axdr_async_setup(xdr, &atest_putlong, &cleanup, &off,
 				0, (void **)NULL);
 	if (rval != AXDR_DONE) {
@@ -768,8 +687,9 @@ atest_getbytes(axdr_state_t *xdr, char *buf, size_t blen)
 	bool_t cleanup;
 	size_t len;
 	int err;
-	int off = 0;
+	int off;
 
+	off = 0;
 	rval = axdr_async_setup(xdr, &atest_getbytes, &cleanup, &off,
 				0, (void **)NULL);
 	if (rval != AXDR_DONE) {
@@ -806,8 +726,9 @@ atest_putbytes(axdr_state_t *xdr, const char *buf, size_t blen)
 	bool_t cleanup;
 	size_t len;
 	int err;
-	int off = 0;
+	int off;
 
+	off = 0;
 	rval = axdr_async_setup(xdr, &atest_putbytes, &cleanup, &off,
 				0, (void **)NULL);
 	if (rval != AXDR_DONE) {
@@ -843,9 +764,66 @@ atest_destroy(axdr_state_t *xdr)
 	return;
 }
 
+static struct axdr_ops_s aops = {
+	&atest_getlong,
+	&atest_putlong,
+	&atest_getbytes,
+	&atest_putbytes,
+	NULL,
+	NULL,
+	NULL,
+	&atest_destroy,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+};
 
 static void
-axdrrec_test_asyncrec(errorctx_t *ectx, axdrproc_t testfunc, void *testobj,
+_datadump(char *buf, size_t len)
+{
+	int i;
+	for (i = 0; i < len; i++) {
+		if (i != 0 && (i % 16) == 0) {
+			printf("\n");
+		}
+		printf("%02hhx ", buf[i]);
+	}
+	printf("\n");
+}
+
+typedef int (*compare_t)(const void*, const void*, size_t);
+
+/**
+ * Compares an encoded/decoded object with the original.
+ */
+static void
+axdr_test_synchronous(axdrproc_t testfunc, void *testobj,
+		      size_t size, axdr_state_t *xsrc, axdr_state_t *xdst,
+		      compare_t cmp)
+{
+	void *dst;
+	axdr_ret_t rval;
+
+	/* encode */
+	ATF_REQUIRE_MSG((rval = testfunc(xsrc, testobj)) == AXDR_DONE,
+			"Unexpected encode return %d\n", rval);
+
+	/* decode */
+	dst = calloc(1, size);
+	ATF_REQUIRE(dst != NULL);
+	ATF_REQUIRE_MSG((rval = testfunc(xdst, dst)) == AXDR_DONE,
+			"Unexpected decode return %d", rval);
+	ATF_REQUIRE(cmp(testobj, dst, size) == 0);
+
+	axdr_free(testfunc, dst);
+	free(dst);
+}
+
+
+
+static void
+axdrrec_test_asyncrec(axdrproc_t testfunc, void *testobj,
 		      size_t size, compare_t cmp, int size1, int size2,
 		      bool_t log)
 {
@@ -859,30 +837,20 @@ axdrrec_test_asyncrec(errorctx_t *ectx, axdrproc_t testfunc, void *testobj,
 
 	serialized_size = axdr_sizeof(testfunc, testobj);
 
-	err = axdrrec_create(&xdr, size1, size2, &obj,
-			     &atest_read, &atest_write);
-	if (err != 0) {
-		error(ectx, "unable to create src xrec");
-		return;
-	}
+	ATF_REQUIRE_MSG((err = axdrrec_create(&xdr, size1, size2, &obj,
+					      &atest_read, &atest_write)) == 0,
+			"unable to create src xrec err=%d\n", err);
 
-	err = astk_init(&stack);
-	if (err != 0) {
-		axdr_destroy(&xdr);
-		error(ectx, "unable to create async stack");
-		return;
-	}
+	ATF_REQUIRE_MSG((err = astk_init(&stack)) == 0,
+			"unable to create async stack err=%d\n", err);
+
 	xdr.x_async = &stack;
 
 	obj.state = 1;
 	obj.off = 0;
 	obj.buflen = serialized_size;
 	obj.buf = malloc(serialized_size);
-	if (obj.buf == NULL) {
-		error(ectx, "Out of memory.");
-		axdr_destroy(&xdr);
-		return;
-	}
+	ATF_REQUIRE(obj.buf != NULL);
 
 	xdr.x_op = AXDR_ENCODE_ASYNC;
 
@@ -892,16 +860,10 @@ axdrrec_test_asyncrec(errorctx_t *ectx, axdrproc_t testfunc, void *testobj,
 		if (ret == AXDR_DONE) {
 			break;
 		}
+
 		obj.state++;
-		if (ret == AXDR_WAITING) {
-			continue;
-		}
-		/* error */
-		error(ectx, "encode error.");
-		free(obj.buf);
-		axdr_destroy(&xdr);
-		astk_cleanup(&stack);
-		return;
+		ATF_REQUIRE_MSG(ret == AXDR_WAITING,
+				"encode error return=%d\n", ret);
 	}
 
 	/* flush it */
@@ -910,33 +872,20 @@ axdrrec_test_asyncrec(errorctx_t *ectx, axdrproc_t testfunc, void *testobj,
 		if (ret == AXDR_DONE) {
 			break;
 		}
+
 		obj.state++;
-		if (ret == AXDR_WAITING) {
-			continue;
-		}
-		/* error */
-		error(ectx, "flush error.");
-		free(obj.buf);
-		axdr_destroy(&xdr);
-		astk_cleanup(&stack);
-		return;
+		ATF_REQUIRE_MSG(ret == AXDR_WAITING,
+				"flush error return=%d\n", ret);
 	}
 
 	if (log) {
 		printf("encoded (%d/%d bytes)\n", obj.off,
 		       (int32_t) serialized_size);
-		hexdump(obj.buf, obj.off);
+		_datadump(obj.buf, obj.off);
 	}
 
 	result = malloc(size);
-	if (!result) {
-		free(obj.buf);
-		axdr_destroy(&xdr);
-		astk_cleanup(&stack);
-		error(ectx, "Out of memory.");
-		return;
-	}
-
+	ATF_REQUIRE(result != NULL);
 	memset(result, 0, size);
 
 	xdr.x_op = AXDR_DECODE_ASYNC;
@@ -950,34 +899,25 @@ axdrrec_test_asyncrec(errorctx_t *ectx, axdrproc_t testfunc, void *testobj,
 		if (ret == AXDR_DONE) {
 			break;
 		}
+
 		obj.state++;
-		if (ret == AXDR_WAITING) {
-			continue;
-		}
-		/* error */
-		error(ectx, "decode error.");
-		axdr_free(testfunc, result);
-		free(result);
-		free(obj.buf);
-		axdr_destroy(&xdr);
-		astk_cleanup(&stack);
-		return;
+		ATF_REQUIRE_MSG(ret == AXDR_WAITING,
+				"decode error return=%d\n", ret);
 	}
 
 	free(obj.buf);
 	axdr_destroy(&xdr);
 	astk_cleanup(&stack);
 
-	if (cmp(testobj, result, size) != 0) {
-		error(ectx, "Objects don't match.");
-	}
+	ATF_REQUIRE_MSG(cmp(testobj, result, size) == 0,
+			"objects don't match");
 	axdr_free(testfunc, result);
 	free(result);
 }
 
 
 static void
-axdrrec_test_async(errorctx_t *ectx, axdrproc_t testfunc, void *testobj,
+axdrrec_test_async(axdrproc_t testfunc, void *testobj,
 		   size_t size, compare_t cmp)
 {
 	size_t serialized_size;
@@ -994,25 +934,16 @@ axdrrec_test_async(errorctx_t *ectx, axdrproc_t testfunc, void *testobj,
 	xdr.x_op = AXDR_ENCODE_ASYNC;
 	xdr.x_ops = &aops;
 	xdr.x_private = &obj;
-	xdr.x_async = &stack;
 
-	err = astk_init(&stack);
-	if (err != 0) {
-		free(obj.buf);
-		error(ectx, "unable to create async stack");
-		return;
-	}
+	ATF_REQUIRE_MSG((err = astk_init(&stack)) == 0,
+			"unable to create async stack err=%d\n", err);
 	xdr.x_async = &stack;
 
 	obj.state = 0;
 	obj.off = 0;
 	obj.buflen = serialized_size;
 	obj.buf = malloc(serialized_size);
-	if (obj.buf == NULL) {
-		error(ectx, "Out of memory.");
-		axdr_destroy(&xdr);
-		return;
-	}
+	ATF_REQUIRE(obj.buf != NULL);
 
 	xdr.x_op = AXDR_ENCODE_ASYNC;
 
@@ -1022,33 +953,21 @@ axdrrec_test_async(errorctx_t *ectx, axdrproc_t testfunc, void *testobj,
 		if (ret == AXDR_DONE) {
 			break;
 		}
+
 		obj.state++;
-		if (ret == AXDR_WAITING) {
-			continue;
-		}
-		/* error */
-		error(ectx, "encode error.");
-		free(obj.buf);
-		astk_cleanup(&stack);
-		return;
+		ATF_REQUIRE_MSG(ret == AXDR_WAITING,
+				"encode error return=%d\n", ret);
 	}
 
-	if (obj.off != serialized_size) {
-		error(ectx, "encode length mismatch %d/%d",
-		      obj.off, serialized_size);
-	}
+	ATF_REQUIRE_MSG(obj.off == serialized_size,
+			"encode length mismatch %d/%zu\n",
+			obj.off, serialized_size);
 
 	printf("encoded\n");
-	hexdump(obj.buf, obj.off);
+	_datadump(obj.buf, obj.off);
 
 	result = malloc(size);
-	if (!result) {
-		free(obj.buf);
-		astk_cleanup(&stack);
-		error(ectx, "Out of memory.");
-		return;
-	}
-
+	ATF_REQUIRE(result != NULL);
 	memset(result, 0, size);
 
 	xdr.x_op = AXDR_DECODE_ASYNC;
@@ -1062,101 +981,85 @@ axdrrec_test_async(errorctx_t *ectx, axdrproc_t testfunc, void *testobj,
 		if (ret == AXDR_DONE) {
 			break;
 		}
+
 		obj.state++;
-		if (ret == AXDR_WAITING) {
-			continue;
-		}
-		/* error */
-		error(ectx, "decode error.");
-		axdr_free(testfunc, result);
-		free(result);
-		free(obj.buf);
-		astk_cleanup(&stack);
-		return;
+		ATF_REQUIRE_MSG(ret == AXDR_WAITING,
+				"decode error return=%d\n", ret);
 	}
 
 	free(obj.buf);
 	astk_cleanup(&stack);
 
-	if (cmp(testobj, result, size) != 0) {
-		error(ectx, "Objects don't match.");
-	}
+	ATF_REQUIRE_MSG(cmp(testobj, result, size) == 0,
+			"Objects don't match.");
 	axdr_free(testfunc, result);
 	free(result);
 }
 
 static void
-axdr_test_synchronous_mem(errorctx_t *ectx, axdrproc_t testfunc,
+axdr_test_synchronous_mem(axdrproc_t testfunc,
 			  void *testobj, size_t size, compare_t cmp)
 {
-	size_t serialized_size = axdr_sizeof(testfunc, testobj);
-	void *buf = malloc(serialized_size);
+	size_t serialized_size;
+	void *buf;
 	axdr_state_t src, dst;
 
-	if (buf == NULL) {
-		error(ectx, "Out of memory.");
-		return;
-	}
-
+	serialized_size = axdr_sizeof(testfunc, testobj);
+	buf = malloc(serialized_size);
+	ATF_REQUIRE(buf != NULL);
 
 	axdrmem_create(&src, (char*) buf, serialized_size, AXDR_ENCODE);
 	axdrmem_create(&dst, (char*) buf, serialized_size, AXDR_DECODE);
-	axdr_test_synchronous(ectx, testfunc, testobj, size, &src, &dst, cmp);
-	hexdump(buf, serialized_size);
+	axdr_test_synchronous(testfunc, testobj, size, &src, &dst, cmp);
+	_datadump(buf, serialized_size);
 	free(buf);
 }
 
 static void
-axdr_test(errorctx_t *ectx, const char *name, axdrproc_t testfunc,
+axdr_test(const char *name, axdrproc_t testfunc,
 	  void *testobj, size_t size, compare_t cmp)
 {
 	printf("%s: sync:\n", name);
-	axdr_test_synchronous_mem(ectx, testfunc, testobj, size, cmp);
+	axdr_test_synchronous_mem(testfunc, testobj, size, cmp);
 	printf("\n%s: async:\n", name);
-	axdrrec_test_async(ectx, testfunc, testobj, size, cmp);
+	axdrrec_test_async(testfunc, testobj, size, cmp);
 	printf("\n%s: async record:\n", name);
-	axdrrec_test_asyncrec(ectx, testfunc, testobj, size,
+	axdrrec_test_asyncrec(testfunc, testobj, size,
 			      cmp, 2000, 2000, TRUE);
 	printf("\n");
 }
 
 static void
-axdr_test_deserialize(errorctx_t *ectx, char *buf, size_t buflen,
+axdr_test_deserialize(char *buf, size_t buflen,
 		      axdrproc_t testfunc, void *expectedobj,
 		      size_t size, compare_t cmp)
 {
 	axdr_state_t src;
 	axdr_ret_t rval;
-	void *dst = calloc(1, size);
+	void *dst;
 
-	if (dst == NULL) {
-		error(ectx, "Out of memory.");
-		return;
-	}
+	dst = calloc(1, size);
+	ATF_REQUIRE(dst != NULL);
 	memset(dst, 0, size);
 
 	axdrmem_create(&src, buf, buflen, AXDR_DECODE);
-	rval = testfunc(&src, dst);
-	if (rval == AXDR_ERROR && expectedobj == NULL) {
-		axdr_free(testfunc, dst);
-		axdr_destroy(&src);
-		free(dst);
-		return;
-	} else if (rval == AXDR_DONE && expectedobj != NULL) {
-		if (cmp(dst, expectedobj, size) != 0) {
-			printf("improper deserialization\n");
-			errcnt++;
-		}
+	if (expectedobj == NULL) {
+		ATF_REQUIRE_MSG((rval = testfunc(&src, dst)) == AXDR_ERROR,
+				"unexpected return=%d\n",  rval);
 		axdr_free(testfunc, dst);
 		axdr_destroy(&src);
 		free(dst);
 		return;
 	}
-	printf("unexpected result %d\n", rval);
-	errcnt++;
+
+	ATF_REQUIRE_MSG((rval = testfunc(&src, dst)) == AXDR_DONE,
+			"unexpected return=%d\n",  rval);
+	ATF_REQUIRE_MSG(cmp(dst, expectedobj, size) == 0,
+			"improper deserialization\n");
 	axdr_free(testfunc, dst);
 	axdr_destroy(&src);
 	free(dst);
+	return;
 }
 
 static axdr_ret_t
@@ -1307,19 +1210,19 @@ ATF_TC_BODY(test_xdr_ops, tc)
 
 	memset(&statr, 0, sizeof(statr));
 
-	axdr_test(NULL, "axdr_int", (axdrproc_t) axdr_int,
+	axdr_test("axdr_int", (axdrproc_t) axdr_int,
 		  &i, sizeof(i), memcmp);
-	axdr_test(NULL, "axdr_hyper", (axdrproc_t) axdr_hyper,
+	axdr_test("axdr_hyper", (axdrproc_t) axdr_hyper,
 		  &q, sizeof(q), memcmp);
-	axdr_test(NULL, "axdr_bool", (axdrproc_t) axdr_bool,
+	axdr_test("axdr_bool", (axdrproc_t) axdr_bool,
 		  &b, sizeof(b), memcmp);
-	axdr_test(NULL, "axdr_short", (axdrproc_t) axdr_short,
+	axdr_test("axdr_short", (axdrproc_t) axdr_short,
 		  &s, sizeof(s), memcmp);
-	axdr_test(NULL, "axdr_encap_int", (axdrproc_t) axdr_encap_int,
+	axdr_test("axdr_encap_int", (axdrproc_t) axdr_encap_int,
 		  &i, sizeof(i), memcmp);
-	axdr_test(NULL, "axdr_string_s", (axdrproc_t) axdr_string_s,
+	axdr_test("axdr_string_s", (axdrproc_t) axdr_string_s,
 		  &str_s, sizeof(string_s), (compare_t) string_s_cmp);
-	axdr_test(NULL, "axdr_test_u", (axdrproc_t) axdr_test_u,
+	axdr_test("axdr_test_u", (axdrproc_t) axdr_test_u,
 		  &my_test_u, sizeof(test_u), (compare_t) test_u_cmp);
 
 	/* test pkgstatus */
@@ -1330,19 +1233,17 @@ ATF_TC_BODY(test_xdr_ops, tc)
 	if (ret == AXDR_DONE) {
 		int j;
 
-		axdr_test(NULL, "axdr_pkgstatusr",
+		axdr_test("axdr_pkgstatusr",
 			  (axdrproc_t)axdr_pkgstatusr, &statr,
 			  sizeof(statr), (compare_t) pkgstatus_cmp);
 		printf("\ntesting various record block sizes:\n");
 
 		for (j = 100; j < 65000; ) {
-			axdrrec_test_asyncrec(NULL,
-					      (axdrproc_t)axdr_pkgstatusr,
+			axdrrec_test_asyncrec((axdrproc_t)axdr_pkgstatusr,
 					      &statr, sizeof(statr),
 					      (compare_t) pkgstatus_cmp,
 					      2000, j, FALSE);
-			axdrrec_test_asyncrec(NULL,
-					      (axdrproc_t)axdr_pkgstatusr,
+			axdrrec_test_asyncrec((axdrproc_t)axdr_pkgstatusr,
 					      &statr, sizeof(statr),
 					      (compare_t) pkgstatus_cmp,
 					      j, 2000, FALSE);
@@ -1367,18 +1268,18 @@ ATF_TC_BODY(test_xdr_ops, tc)
 	if (ret == AXDR_DONE) {
 		int j;
 
-		axdr_test(NULL, "axdr_op_entry", (axdrproc_t) axdr_op_entry,
+		axdr_test("axdr_op_entry", (axdrproc_t) axdr_op_entry,
 			  &op_ent, num_entries * sizeof(op_ent),
 			  (compare_t) op_entry_cmp);
 
 		printf("\ntesting various record block sizes:\n");
 		for (j = 100; j < 65000; ) {
-			axdrrec_test_asyncrec(NULL, (axdrproc_t) axdr_op_entry,
+			axdrrec_test_asyncrec((axdrproc_t) axdr_op_entry,
 					      &op_ent,
 					      num_entries * sizeof(op_ent),
 					      (compare_t) op_entry_cmp,
 					      2000, j, FALSE);
-			axdrrec_test_asyncrec(NULL, (axdrproc_t) axdr_op_entry,
+			axdrrec_test_asyncrec((axdrproc_t) axdr_op_entry,
 					      &op_ent,
 					      num_entries * sizeof(op_ent),
 					      (compare_t) op_entry_cmp,
@@ -1395,17 +1296,15 @@ ATF_TC_BODY(test_xdr_ops, tc)
 
 
 	printf("\n(deserialize good serialization)\n");
-	axdr_test_deserialize(NULL, good_test_u_serialization,
+	axdr_test_deserialize(good_test_u_serialization,
 			      sizeof(good_test_u_serialization)-1,
 			      (axdrproc_t) axdr_test_u, &my_test_u,
 			      sizeof(test_u), (compare_t) test_u_cmp);
 	printf("\n(deserialize bad serialization)\n");
-	axdr_test_deserialize(NULL, bad_test_u_serialization,
+	axdr_test_deserialize(bad_test_u_serialization,
 			      sizeof(bad_test_u_serialization)-1,
 			      (axdrproc_t) axdr_test_u, NULL,
 			      sizeof(test_u), (compare_t) test_u_cmp);
-
-	ATF_REQUIRE_EQ(errcnt, 0);
 }
 
 ATF_TP_ADD_TCS(tp)
