@@ -296,33 +296,38 @@ _datadump(char *buf, size_t len)
 
 typedef int (*compare_t)(const void*, const void*, size_t);
 
-/**
- * Compares an encoded/decoded object with the original.
- */
+
 static void
-axdr_test_synchronous(axdrproc_t testfunc, void *testobj,
-		      size_t size, axdr_state_t *xsrc, axdr_state_t *xdst,
-		      compare_t cmp)
+axdr_test_synchronous(axdrproc_t testfunc,
+		      void *testobj, size_t size, compare_t cmp)
 {
-	void *dst;
+	size_t serialized_size;
+	void *buf1, *buf2;
 	axdr_ret_t rval;
+	axdr_state_t src, dst;
+
+	serialized_size = axdr_sizeof(testfunc, testobj);
+	buf1 = malloc(serialized_size);
+	ATF_REQUIRE(buf1 != NULL);
 
 	/* encode */
-	ATF_REQUIRE_MSG((rval = testfunc(xsrc, testobj)) == AXDR_DONE,
+	axdrmem_create(&src, (char*) buf1, serialized_size, AXDR_ENCODE);
+	ATF_REQUIRE_MSG((rval = testfunc(&src, testobj)) == AXDR_DONE,
 			"Unexpected encode return %d\n", rval);
 
 	/* decode */
-	dst = calloc(1, size);
-	ATF_REQUIRE(dst != NULL);
-	ATF_REQUIRE_MSG((rval = testfunc(xdst, dst)) == AXDR_DONE,
+	axdrmem_create(&dst, (char *) buf1, serialized_size, AXDR_DECODE);
+	buf2 = calloc(1, size);
+	ATF_REQUIRE(buf2 != NULL);
+	ATF_REQUIRE_MSG((rval = testfunc(&dst, buf2)) == AXDR_DONE,
 			"Unexpected decode return %d", rval);
-	ATF_REQUIRE(cmp(testobj, dst, size) == 0);
+	ATF_REQUIRE(cmp(testobj, buf2, size) == 0);
+	axdr_free(testfunc, buf2);
+	free(buf2);
 
-	axdr_free(testfunc, dst);
-	free(dst);
+	_datadump(buf1, serialized_size);
+	free(buf1);
 }
-
-
 
 static void
 axdrrec_test_asyncrec(axdrproc_t testfunc, void *testobj,
@@ -499,69 +504,17 @@ axdrrec_test_async(axdrproc_t testfunc, void *testobj,
 }
 
 static void
-axdr_test_synchronous_mem(axdrproc_t testfunc,
-			  void *testobj, size_t size, compare_t cmp)
-{
-	size_t serialized_size;
-	void *buf;
-	axdr_state_t src, dst;
-
-	serialized_size = axdr_sizeof(testfunc, testobj);
-	buf = malloc(serialized_size);
-	ATF_REQUIRE(buf != NULL);
-
-	axdrmem_create(&src, (char*) buf, serialized_size, AXDR_ENCODE);
-	axdrmem_create(&dst, (char*) buf, serialized_size, AXDR_DECODE);
-	axdr_test_synchronous(testfunc, testobj, size, &src, &dst, cmp);
-	_datadump(buf, serialized_size);
-	free(buf);
-}
-
-static void
 axdr_test(const char *name, axdrproc_t testfunc,
 	  void *testobj, size_t size, compare_t cmp)
 {
 	printf("%s: sync:\n", name);
-	axdr_test_synchronous_mem(testfunc, testobj, size, cmp);
+	axdr_test_synchronous(testfunc, testobj, size, cmp);
 	printf("\n%s: async:\n", name);
 	axdrrec_test_async(testfunc, testobj, size, cmp);
 	printf("\n%s: async record:\n", name);
 	axdrrec_test_asyncrec(testfunc, testobj, size,
 			      cmp, 2000, 2000, TRUE);
 	printf("\n");
-}
-
-static void
-axdr_test_deserialize(char *buf, size_t buflen,
-		      axdrproc_t testfunc, void *expectedobj,
-		      size_t size, compare_t cmp)
-{
-	axdr_state_t src;
-	axdr_ret_t rval;
-	void *dst;
-
-	dst = calloc(1, size);
-	ATF_REQUIRE(dst != NULL);
-	memset(dst, 0, size);
-
-	axdrmem_create(&src, buf, buflen, AXDR_DECODE);
-	if (expectedobj == NULL) {
-		ATF_REQUIRE_MSG((rval = testfunc(&src, dst)) == AXDR_ERROR,
-				"unexpected return=%d\n",  rval);
-		axdr_free(testfunc, dst);
-		axdr_destroy(&src);
-		free(dst);
-		return;
-	}
-
-	ATF_REQUIRE_MSG((rval = testfunc(&src, dst)) == AXDR_DONE,
-			"unexpected return=%d\n",  rval);
-	ATF_REQUIRE_MSG(cmp(dst, expectedobj, size) == 0,
-			"improper deserialization\n");
-	axdr_free(testfunc, dst);
-	axdr_destroy(&src);
-	free(dst);
-	return;
 }
 
 static axdr_ret_t
@@ -1299,7 +1252,42 @@ ATF_TC_BODY(test_xdr_pointers, tc)
 	axdr_destroy(&xdr);
 }
 
+
 ATF_TC_WITHOUT_HEAD(test_xdr_serialize);
+
+static void
+axdr_test_deserialize(char *buf, size_t buflen,
+		      axdrproc_t testfunc, void *expectedobj,
+		      size_t size, compare_t cmp)
+{
+	axdr_state_t src;
+	axdr_ret_t rval;
+	void *dst;
+
+	dst = calloc(1, size);
+	ATF_REQUIRE(dst != NULL);
+	memset(dst, 0, size);
+
+	axdrmem_create(&src, buf, buflen, AXDR_DECODE);
+	if (expectedobj == NULL) {
+		ATF_REQUIRE_MSG((rval = testfunc(&src, dst)) == AXDR_ERROR,
+				"unexpected return=%d\n",  rval);
+		axdr_free(testfunc, dst);
+		axdr_destroy(&src);
+		free(dst);
+		return;
+	}
+
+	ATF_REQUIRE_MSG((rval = testfunc(&src, dst)) == AXDR_DONE,
+			"unexpected return=%d\n",  rval);
+	ATF_REQUIRE_MSG(cmp(dst, expectedobj, size) == 0,
+			"improper deserialization\n");
+	axdr_free(testfunc, dst);
+	axdr_destroy(&src);
+	free(dst);
+	return;
+}
+
 ATF_TC_BODY(test_xdr_serialize, tc)
 {
 	string_s str_s = { .str = __UNCONST("foobar") };
