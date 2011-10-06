@@ -2,8 +2,8 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.59)
-AC_INIT(libarpc, 0.6)
-AM_INIT_AUTOMAKE(libarpc, 0.6)
+AC_INIT(libarpc, 0.6.1)
+AM_INIT_AUTOMAKE(libarpc, 0.6.1)
 LT_INIT
 AC_CONFIG_SRCDIR([libarpc/stack.c])
 AC_CONFIG_HEADER([config.h:config.h.in])
