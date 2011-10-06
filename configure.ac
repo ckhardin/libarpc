@@ -9,16 +9,45 @@ AC_CONFIG_SRCDIR([libarpc/stack.c])
 AC_CONFIG_HEADER([config.h:config.h.in])
 AC_CONFIG_MACRO_DIR([m4])
 
-AC_ARG_ENABLE(gss,[   --enable-gss          Turn on gss api],
+AC_ARG_ENABLE(gss,[AS_HELP_STRING([--enable-gss], [Turn on gss api])],
 	[case "${enableval}" in
-	  yes) gss=true ; AC_CHECK_LIB([gssapi],[gss_init_sec_context]) ;;
-	  no) gss=false ;;
-	  *) AC_MSG_ERROR(bad value ${enableval} for --enable-gss) ;;
-	 esac],[gss=false])
-AM_CONDITIONAL(GSS, test x$gss = xtrue)
-if test x$gss = xtrue; then
+	  yes)
+		ac_enable_gss=yes
+		;;
+	  no)
+		ac_enable_gss=no
+		;;
+	  *)
+		AC_MSG_ERROR(bad value ${enableval} for --enable-gss)
+		;;
+	esac],
+	[ac_enable_gss=no]
+)
+AM_CONDITIONAL(GSS, test x$ac_enable_gss = xyes)
+if test x$ac_enable_gss = xyes; then
+	AC_CHECK_LIB([gssapi],[gss_init_sec_context])
 	AC_DEFINE(HAVE_LIBGSSAPI, 1, [])
 fi
+
+AC_ARG_WITH(atf,[AS_HELP_STRING([--with-atf], [Use NetBSD ATF])],
+	[case "$withval" in
+	  yes)
+		ac_with_atf=yes
+		;;
+	  no)
+		ac_with_atf=no
+		;;
+	  *)
+		ac_with_atf=yes
+		ATF_INCLUDES="-I$withval/include"
+		ATF_LDFLAGS="-L$withval/lib"
+		;;
+	esac],
+	[ac_with_atf=yes]
+)
+AM_CONDITIONAL(ATF, test x$ac_with_atf = xyes)
+AC_SUBST(ATF_INCLUDES)
+AC_SUBST(ATF_LDFLAGS)
 
 # Checks for programs.
 AC_LANG(C)

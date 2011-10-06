@@ -1,8 +1,10 @@
 ACLOCAL_AMFLAGS = -I m4
-AM_CPPFLAGS = -I$(top_srcdir)/libarpc
-LDADD = ../libarpc/libarpc.la -latf-c -lssl
+AM_CPPFLAGS = -I$(top_srcdir)/libarpc $(ATF_INCLUDES)
+LDADD = ../libarpc/libarpc.la -latf-c -lssl $(ATF_LDFLAGS)
 CLEANFILES =
 EXTRA_DIST =
+
+if ATF
 
 tests_PROGRAMS = t_xdr t_rpc
 tests_DATA = Atffile
@@ -67,3 +69,4 @@ CLEANFILES += installcheck.fifo installcheck.log
 pkgtests_DATA = Atffile
 EXTRA_DIST += $(pkgtests_DATA)
 
+endif # HAVE_ATF
