@@ -142,7 +142,7 @@ struct vep_svc_call_obj_s {
 };
 
 struct vc_ioep_s {
-	axdr_state_t			vep_xdrs;
+	axdr_state_t		vep_xdrs;
 	uint32_t		vep_flags;
 	vep_type_t		vep_type;
 	arpc_addr_t		vep_raddr;	/* remote addr */
@@ -3575,12 +3575,12 @@ io_vcd_write(void *arg, void *buf, size_t *lenp)
 	struct iovec	vec[1];
 	int		err;
 
-	ioep = (ar_ioep_t)arg;
-	vep = (vc_ioep_t *)ioep->iep_drv_arg;
-
 	if (!arg || !buf || !lenp) {
 		return EINVAL;
 	}
+
+	ioep = (ar_ioep_t)arg;
+	vep = (vc_ioep_t *)ioep->iep_drv_arg;
 	vcd = vep->vep_vcd;
 
 	vec[0].iov_base = buf;
