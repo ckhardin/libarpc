@@ -71,7 +71,7 @@ struct xdrstr_s {
 	FILE		*fp;
 	char		*namebuf;
 	int		 namelen;
-	const char  *prefix;
+	const char	*prefix;
 	char		*buf;
 	int		 bufoff;
 	int		 buflen;
@@ -245,19 +245,22 @@ xdrstr_add_value(axdr_state_t *xdrs, const char *str)
 				xs->prefix ? xs->prefix : "", str);
 		}
 	} else {
+		off = xs->bufoff;
 		if (xs->namebuf) {
-			off = snprintf(&xs->buf[xs->bufoff], 
-				       xs->buflen - xs->bufoff, "%s%s%s = %s",
-				       xs->bufoff == 0 ? "" : ", ", 
-				       xs->prefix ? xs->prefix : "", 
-				       xs->namebuf, str);
+			snprintf(&xs->buf[off], xs->buflen - off,
+				 "%s%s%s = %s",
+				 xs->bufoff == 0 ? "" : ", ", 
+				 xs->prefix ? xs->prefix : "", 
+				 xs->namebuf, str);
+			off += strlen(&xs->buf[off]);
 		} else {
-			off = snprintf(&xs->buf[xs->bufoff], 
-				       xs->buflen - xs->bufoff, "%s%s%s", 
-				       xs->bufoff == 0 ? "" : ", ", 
-				       xs->prefix ? xs->prefix : "", str);
+			snprintf(&xs->buf[off], xs->buflen - off,
+				 "%s%s%s", 
+				 xs->bufoff == 0 ? "" : ", ", 
+				 xs->prefix ? xs->prefix : "", str);
+			off += strlen(&xs->buf[xs->bufoff]);
 		}
-		xs->bufoff += off;
+		xs->bufoff = off;
 	}
 
 	return AXDR_DONE;
@@ -276,7 +279,6 @@ xdrstr_add_bin(axdr_state_t *xdrs, const char *buf, int len)
 		return AXDR_ERROR;
 	}
 
-	off = xs->bufoff;
 	if (xs->fp) {
 		if (xs->prefix) {
 			fprintf(xs->fp, "%s", xs->prefix);
@@ -284,39 +286,39 @@ xdrstr_add_bin(axdr_state_t *xdrs, const char *buf, int len)
 		if (xs->namebuf) {
 			fprintf(xs->fp, "%s = ", xs->namebuf);
 		}
+		fprintf(xs->fp, "%s", len <= 0 ? "(void)" : "0x");
+
+		for (idx = 0; idx < len; idx++) {
+			val = (uint8_t)buf[idx];
+			fprintf(xs->fp, "%02x", (uint32_t)val);
+		}
+
+		fprintf(xs->fp, "\n");
 	} else {
+		off = xs->bufoff;
+
 		if (xs->prefix) {
-			off += snprintf(&xs->buf[off],
-					xs->buflen - off, "%s", xs->prefix);
+			snprintf(&xs->buf[off], xs->buflen - off,
+				 "%s", xs->prefix);
+			off += strlen(&xs->buf[off]);
 		}
 		if (xs->namebuf) {
-			off += snprintf(&xs->buf[off], 
-					xs->buflen - off, "%s = ", 
-					xs->namebuf);
+			snprintf(&xs->buf[off], xs->buflen - off,
+				 "%s = ", xs->namebuf);
+			off += strlen(&xs->buf[off]);
 		}
-	}
+		snprintf(&xs->buf[off], xs->buflen - off, "%s", 
+			 len <= 0 ? "(void)" : "0x");
+		off += strlen(&xs->buf[off]);
 
-	if (xs->fp) {
-		fprintf(xs->fp, "%s", len <= 0 ? "(void)" : "0x");
-	} else {
-		off += snprintf(&xs->buf[off], xs->buflen - off, "%s", 
-				len <= 0 ? "(void)" : "0x");
-	}
-			
-	for (idx = 0; idx < len; idx++) {
-		val = (uint8_t)buf[idx];
-		if (xs->fp) {
-			fprintf(xs->fp, "%02x", (uint32_t)val);
-		} else {
-			off += snprintf(&xs->buf[off], xs->buflen - off, 
-					"%02x", (uint32_t)val);
+		for (idx = 0; idx < len; idx++) {
+			val = (uint8_t)buf[idx];
+			snprintf(&xs->buf[off], xs->buflen - off, 
+				 "%02x", (uint32_t)val);
+			off += strlen(&xs->buf[off]);
 		}
+		xs->bufoff = off;
 	}
 
-	if (xs->fp) {
-		fprintf(xs->fp, "\n");
-	}
-
-	xs->bufoff = off;
 	return AXDR_DONE;
 }
