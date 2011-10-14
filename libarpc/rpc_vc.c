@@ -2256,7 +2256,7 @@ vc_event_cb(evutil_socket_t fd, short events, void *arg)
 						"Cannot create an event\n");
 					ar_svc_destroy(xp);
 				}
-				event_add_use_ts(ev, NULL);
+				event_add(ev, NULL);
 				ioep2->iep_event = ev;
 
 				RPCTRACE(ioctx, 3,
