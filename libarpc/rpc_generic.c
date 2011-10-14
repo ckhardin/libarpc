@@ -679,29 +679,6 @@ ar_time_not_ok(struct timespec *t)
 }
 
 int
-ar_time_to_ms(struct timespec *diff)
-{
-	struct timespec zero;
-	int period;
-
-	zero.tv_sec = 0;
-	zero.tv_nsec = 0;
-
-	if (tspeccmp(diff, &zero, <=)) {
-		/* expired */
-		period = 0;
-	} else if (diff->tv_sec > 2000000) {
-		/* cap at 2e6 seconds */
-		period = 2000000000;
-	} else {
-		period = diff->tv_sec * 1000;
-		period += diff->tv_nsec / 1000000;
-	}
-
-	return period;
-}
-
-int
 ar_gettime(struct timespec *res)
 {
 	int sts;
@@ -726,6 +703,46 @@ ar_gettime(struct timespec *res)
 	}
 	res->tv_sec = tv.tv_sec;
 	res->tv_nsec = tv.tv_usec * 1000;
+	return 0;
+}
+
+int
+ar_time_to_ms(struct timespec *diff)
+{
+	struct timespec zero;
+	int period;
+
+	zero.tv_sec = 0;
+	zero.tv_nsec = 0;
+
+	if (tspeccmp(diff, &zero, <=)) {
+		/* expired */
+		period = 0;
+	} else if (diff->tv_sec > 2000000) {
+		/* cap at 2e6 seconds */
+		period = 2000000000;
+	} else {
+		period = diff->tv_sec * 1000;
+		period += diff->tv_nsec / 1000000;
+	}
+
+	return period;
+}
+
+int
+ar_tsaddmsecs(struct timespec *ts, int msecs)
+{
+	if (!ts) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	ts->tv_sec += msecs / 1000;
+	ts->tv_nsec += (msecs % 1000) * 1000000;
+	if (ts->tv_nsec >= 1000000000L) {
+		ts->tv_sec++;
+		ts->tv_nsec -= 1000000000L;
+	}
 	return 0;
 }
 

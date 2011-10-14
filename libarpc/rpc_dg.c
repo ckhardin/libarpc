@@ -1534,16 +1534,14 @@ dg_event_cb(evutil_socket_t fd, short events, void *arg)
 	dg_ioep_dropref(ep);
 }
 
-/* extern definition from libevent */
-extern int event_add_use_ts(struct event *, const struct timespec *);
-
 static int
 dg_event_setup(ar_ioep_t ep, struct event_base *evbase)
 {
 	struct pollfd pfd;
 	struct event *ev;
 	short events;
-	struct timespec ts_timeout;
+	struct timespec ts;
+	struct timeval tv;
 	int timeout;
 
 	if (!ep || ep->iep_type != IOEP_TYPE_DG) {
@@ -1553,8 +1551,8 @@ dg_event_setup(ar_ioep_t ep, struct event_base *evbase)
 	/* call poll_setup routine for the fd and events */
 	dg_setup(ep, &pfd, &timeout);
 
-	ar_gettime(&ts_timeout);
-	tu_tsaddmsecs(&ts_timeout, timeout);
+	ar_gettime(&ts);
+	ar_tsaddmsecs(&ts, timeout);
 	
 	/* convert pollfd's events into libevent events */
 	events = EV_PERSIST;
@@ -1569,7 +1567,9 @@ dg_event_setup(ar_ioep_t ep, struct event_base *evbase)
 	ev = event_new(evbase, (evutil_socket_t)pfd.fd,
 		       events, dg_event_cb, (void *)ep);
 	/* monitor the event */
-	event_add_use_ts(ev, (const struct timespec *)&ts_timeout);
+	tv.tv_sec = ts.tv_sec;
+	tv.tv_usec = ts.tv_nsec / 1000;
+	event_add(ev, &tv);
 
 	ep->iep_event = ev;
 

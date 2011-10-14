@@ -481,8 +481,9 @@ extern int ar_fixup_addr(arpc_addr_t *, const arpc_addr_t *);
 
 extern void ar_ioep_fatal_error(ar_ioep_t);
 extern bool_t ar_time_not_ok(struct timespec *t);
-extern int ar_time_to_ms(struct timespec *diff);
 extern int ar_gettime(struct timespec *res);
+extern int ar_time_to_ms(struct timespec *now);
+extern int ar_tsaddmsecs(struct timespec *now, int msecs);
 
 extern void ar_xid_init(struct ar_xid_state_s *state);
 extern uint32_t ar_xid_get(struct ar_xid_state_s *state);

@@ -2280,7 +2280,8 @@ vc_event_setup(ar_ioep_t ep, struct event_base *evbase)
 	struct pollfd pfd;
 	struct event *ev;
 	short events;
-	struct timespec ts_timeout;
+	struct timespec ts;
+	struct timeval tv;
 	int timeout;
 	int err;
 
@@ -2297,8 +2298,8 @@ vc_event_setup(ar_ioep_t ep, struct event_base *evbase)
 	memset(&pfd, 0, sizeof(pfd));
 	vc_setup(ep, &pfd, &timeout);
 
-	ar_gettime(&ts_timeout);
-	tu_tsaddmsecs(&ts_timeout, timeout);
+	ar_gettime(&ts);
+	ar_tsaddmsecs(&ts, timeout);
 
 	/* convert pollfd's events into libevent events */
 	events = EV_PERSIST;
@@ -2328,7 +2329,9 @@ vc_event_setup(ar_ioep_t ep, struct event_base *evbase)
 		}
 	}
 	/* monitor the event */
-	event_add_use_ts(ep->iep_event, (const struct timespec *)&ts_timeout);
+	tv.tv_sec = ts.tv_sec;
+	tv.tv_usec = ts.tv_nsec / 1000;
+	event_add(ep->iep_event, &tv);
 
 	RPCTRACE(ep->iep_ioctx, 3, "vc_event_setup(): fd %d ep %p\n",
 		 pfd.fd, ep);
