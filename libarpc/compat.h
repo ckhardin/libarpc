@@ -69,7 +69,7 @@ struct timespec;
 extern int clock_gettime(clockid_t clock_id, struct timespec *tp);
 #endif
 
-#ifndef HAVE_UCRED
+#ifndef HAVE_STRUCT_UCRED
 struct ucred {
 	int pid;
 	int uid;

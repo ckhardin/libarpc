@@ -2,8 +2,8 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.59)
-AC_INIT(libarpc, 0.6.2)
-AM_INIT_AUTOMAKE(libarpc, 0.6.2)
+AC_INIT(libarpc, 0.6.3)
+AM_INIT_AUTOMAKE(libarpc, 0.6.3)
 LT_INIT
 AC_CONFIG_SRCDIR([libarpc/stack.c])
 AC_CONFIG_HEADER([config.h:config.h.in])
@@ -80,6 +80,7 @@ AC_TYPE_MODE_T
 AC_TYPE_OFF_T
 AC_TYPE_PID_T
 AC_TYPE_SIZE_T
+AC_CHECK_TYPES([struct ucred], [], [], [[#include <sys/socket.h>]])
 
 # Checks for library functions.
 AC_FUNC_ALLOCA
