@@ -1,9 +1,9 @@
 ACLOCAL_AMFLAGS = -I m4
 
-SUBDIRS = arpcgen libarpc arpcbind arpcinfo test
+SUBDIRS = build arpcgen libarpc arpcbind arpcinfo test
 
 # Set the order for the subdirs
-libarpc: arpcgen
-arpcbind: arpcgen libarpc
-arpcinfo: arpcgen libarpc
-test: arpcgen libarpc
+libarpc: build 
+arpcbind: build libarpc
+arpcinfo: build libarpc
+test: build libarpc

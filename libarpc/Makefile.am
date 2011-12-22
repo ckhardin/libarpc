@@ -76,11 +76,11 @@ nodist_libarpc_la_SOURCES = rpcb_prot.h pmap_prot.h
 rpcb_clnt.c: rpcb_prot.h pmap_prot.h
 
 rpcb_prot.h: $(top_srcdir)/libarpc/rpcb_prot.x
-	$(top_builddir)/arpcgen/arpcgen -h -o rpcb_prot.h \
+	$(top_builddir)/build/buildrpcgen -h -o rpcb_prot.h \
 		$(top_srcdir)/libarpc/rpcb_prot.x
 
 pmap_prot.h: $(top_srcdir)/libarpc/pmap_prot.x
-	$(top_builddir)/arpcgen/arpcgen -h -o pmap_prot.h \
+	$(top_builddir)/build/buildrpcgen -h -o pmap_prot.h \
 		$(top_srcdir)/libarpc/pmap_prot.x
 
 CLEANFILES += rpcb_prot.h pmap_prot.h

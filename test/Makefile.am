@@ -20,16 +20,16 @@ test_xdr.$(OBJEXT): testobjs_xdr.h
 test_rpc.$(OBJEXT): testobjs_rpc.h
 
 testobjs_xdr.h: $(top_srcdir)/test/testobjs_xdr.x
-	$(top_builddir)/arpcgen/arpcgen -h -o $@ $<
+	$(top_builddir)/build/buildrpcgen -h -o $@ $<
 testobjs_xdr.c: $(top_srcdir)/test/testobjs_xdr.x
-	$(top_builddir)/arpcgen/arpcgen -c -o $@ $<
+	$(top_builddir)/build/buildrpcgen -c -o $@ $<
 
 testobjs_rpc.h: $(top_srcdir)/test/testobjs_rpc.x
-	$(top_builddir)/arpcgen/arpcgen -h -o $@ $<
+	$(top_builddir)/build/buildrpcgen -h -o $@ $<
 testobjs_rpc.c: $(top_srcdir)/test/testobjs_rpc.x
-	$(top_builddir)/arpcgen/arpcgen -c -o $@.xdr $<
-	$(top_builddir)/arpcgen/arpcgen -l -o $@.clnt $<
-	$(top_builddir)/arpcgen/arpcgen -m -o $@.srv $<
+	$(top_builddir)/build/buildrpcgen -c -o $@.xdr $<
+	$(top_builddir)/build/buildrpcgen -l -o $@.clnt $<
+	$(top_builddir)/build/buildrpcgen -m -o $@.srv $<
 	cat $@.xdr $@.clnt $@.srv > $@
 	rm $@.xdr $@.clnt $@.srv
 

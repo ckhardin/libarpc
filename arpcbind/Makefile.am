@@ -11,11 +11,11 @@ arpcbind_SOURCES = check_bound.c rpcb_stat.c rpcb_svc_4.c rpcbind.c \
 	util.c rpcb_prot.h pmap_prot.h rpcbind.h
 
 rpcb_prot.h: $(top_srcdir)/libarpc/rpcb_prot.x
-	$(top_builddir)/arpcgen/arpcgen -h -o rpcb_prot.h \
+	$(top_builddir)/build/buildrpcgen -h -o rpcb_prot.h \
 		$(top_srcdir)/libarpc/rpcb_prot.x
 
 pmap_prot.h: $(top_srcdir)/libarpc/pmap_prot.x
-	$(top_builddir)/arpcgen/arpcgen -h -o pmap_prot.h \
+	$(top_builddir)/build/buildrpcgen -h -o pmap_prot.h \
 		$(top_srcdir)/libarpc/pmap_prot.x
 
 dist_man_MANS = arpcbind.8

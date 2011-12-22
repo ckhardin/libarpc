@@ -59,6 +59,9 @@ AC_PROG_RANLIB
 AC_PATH_PROG([ATFRUN], [atf-run])
 AC_PATH_PROG([ATFREPORT], [atf-report])
 
+CC_FOR_BUILD=${CC_FOR_BUILD:-${CC}}
+AC_SUBST(CC_FOR_BUILD)
+
 # Checks for libraries.
 # FIXME: Replace `main' with a function in `-lutil':
 #AC_CHECK_LIB([util], [main])
@@ -117,6 +120,7 @@ AC_CHECK_MEMBERS([struct sockaddr_storage.ss_len,
 ])
 
 AC_CONFIG_FILES([Makefile 
+		 build/Makefile
 		 libarpc/Makefile
 		 arpcbind/Makefile
 		 arpcgen/Makefile
