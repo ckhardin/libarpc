@@ -1,0 +1,6 @@
+t_rpc
+testobjs_rpc.c
+testobjs_rpc.h
+t_xdr
+testobjs_xdr.c
+testobjs_xdr.h

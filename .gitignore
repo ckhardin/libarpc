@@ -1,0 +1,28 @@
+# Ignore some standard generated stuff
+.*
+*.o
+*.o.*
+*.so
+*.so.dbg
+*.lo
+*.a
+*.la
+
+# autoconf foo
+Makefile
+Makefile.in
+config.guess
+config.log
+config.status
+config.sub
+config.h
+config.h.in
+configure
+depcomp
+install-sh
+missing
+stamp-h1
+aclocal.m4
+m4/
+ltmain.sh
+libtool
