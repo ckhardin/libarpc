@@ -1,4 +1,5 @@
 ACLOCAL_AMFLAGS = -I m4
+EXTRA_DIST = bootstrap
 
 SUBDIRS = build arpcgen libarpc arpcbind arpcinfo test
 
