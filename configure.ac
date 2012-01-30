@@ -61,6 +61,8 @@ AC_PATH_PROG([ATFREPORT], [atf-report])
 
 CC_FOR_BUILD=${CC_FOR_BUILD:-${CC}}
 AC_SUBST(CC_FOR_BUILD)
+CFLAGS_FOR_BUILD=${CFLAGS_FOR_BUILD:-${CFLAGS}}
+AC_SUBST(CFLAGS_FOR_BUILD)
 
 # Checks for libraries.
 # FIXME: Replace `main' with a function in `-lutil':
