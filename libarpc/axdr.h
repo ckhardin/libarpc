@@ -155,11 +155,11 @@ struct astk_s;
 struct axdr_state_s {
 	axdr_op_t	x_op;		/* operation; fast additional param */
 	const axdr_ops_t *x_ops;
+	struct astk_s	*x_async;	/* handle for async state */
 	char *	 	x_public;	/* users' data */
 	void *		x_private;	/* pointer to private data */
 	char * 		x_base;		/* private used for position info */
-	off_t		x_handy;	/* extra private value */
-	struct astk_s	*x_async;	/* handle for async state */
+	u_int		x_handy;	/* extra private value */
 };
 
 
