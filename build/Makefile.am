@@ -1,4 +1,4 @@
-AM_CPPFLAGS = -I$(top_srcdir)/libarpc/include
+AM_CPPFLAGS = -I$(top_srcdir)/libarpc
 AM_CPPFLAGS += -I$(top_srcdir)/arpcgen
 COMPILE = @CC_FOR_BUILD@
 CC = @CC_FOR_BUILD@
