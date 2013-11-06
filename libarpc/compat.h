@@ -96,4 +96,6 @@ struct ucred {
 
 #define ar_offsetof(_type, _field) ((unsigned int)&(((_type *)0)->_field))
 
+#ifndef __FBSDID
 #define __FBSDID(_str)
+#endif
