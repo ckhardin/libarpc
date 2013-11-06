@@ -1,4 +1,5 @@
-AM_CPPFLAGS = -I$(top_srcdir)/libarpc/include
+AM_CPPFLAGS = -I$(top_srcdir)/libarpc \
+	-D_BSD_SOURCE
 
 bin_PROGRAMS = arpcgen
 arpcgen_SOURCES = \
