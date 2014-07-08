@@ -9,6 +9,25 @@ AC_CONFIG_SRCDIR([libarpc/stack.c])
 AC_CONFIG_HEADER([config.h:config.h.in])
 AC_CONFIG_MACRO_DIR([m4])
 
+AC_ARG_ENABLE(openssl,[AS_HELP_STRING([--enable-openssl], [Turn on openssl])],
+	[case "${enableval}" in
+	  yes)
+		ac_enable_openssl=yes
+		;;
+	  no)
+		ac_enable_openssl=no
+		;;
+	  *)
+		AC_MSG_ERROR(bad value ${enableval} for --enable-openssl)
+		;;
+	esac],
+	[ac_enable_openssl=no]
+)
+AM_CONDITIONAL(OPENSSL, test x$ac_enable_openssl = xyes)
+if test x$ac_enable_openssl = xyes; then
+	AC_CHECK_LIB([ssl],[SSL_new])
+fi
+
 AC_ARG_ENABLE(gss,[AS_HELP_STRING([--enable-gss], [Turn on gss api])],
 	[case "${enableval}" in
 	  yes)

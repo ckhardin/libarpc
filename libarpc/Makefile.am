@@ -13,7 +13,7 @@ CLEANFILES =
 EXTRA_DIST =
 
 lib_LTLIBRARIES = libarpc.la
-libarpc_la_LDFLAGS = -lpthread -lssl
+libarpc_la_LDFLAGS = -lpthread
 
 # Only files ported so far
 libarpc_ladir = $(includedir)/libarpc
@@ -25,8 +25,7 @@ libarpc_la_HEADERS = \
 	stack.h \
 	stat.h \
 	svc.h svc_auth.h \
-	types.h \
-	vcd_tls.h
+	types.h
 
 libarpc_la_SOURCES = \
 	rpc_prot.c rpc_io.c rpc_vc.c rpc_dg.c rpc_commondata.c \
@@ -35,7 +34,6 @@ libarpc_la_SOURCES = \
 	auth_none.c auth_unix.c authunix_prot.c \
 	clnt_generic.c \
 	svc_auth.c svc.c svc_generic.c \
-	vcd_tls.c \
 	stack.c \
  	rpc_com.h xdr_com.h \
 	compat.h namespace.h un-namespace.h reentrant.h
@@ -55,6 +53,13 @@ libarpc_la_SOURCES = \
 ## XDR
 libarpc_la_SOURCES += xdr.c xdr_rec.c xdr_array.c xdr_float.c xdr_mem.c \
 	xdr_reference.c xdr_stdio.c xdr_sizeof.c xdr_print.c
+
+## OpenSSL (TLS)
+if OPENSSL
+    libarpc_la_HEADERS += vcd_tls.h
+    libarpc_la_SOURCES += vcd_tls.c
+    libarpc_la_LDFLAGS += -lssl
+endif
 
 ## Secure-RPC
 if GSS
