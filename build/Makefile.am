@@ -3,8 +3,10 @@ AM_CPPFLAGS += -I$(top_srcdir)/arpcgen
 COMPILE = @CC_FOR_BUILD@
 CC = @CC_FOR_BUILD@
 AM_CFLAGS = @CFLAGS_FOR_BUILD@
+LIBS =
 
 noinst_PROGRAMS = buildrpcgen
+buildrpcgen_LDADD =
 buildrpcgen_SOURCES = \
 	$(top_srcdir)/arpcgen/rpc_main.c \
 	$(top_srcdir)/arpcgen/rpc_clntout.c \
