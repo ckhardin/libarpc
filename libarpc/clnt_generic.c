@@ -308,7 +308,6 @@ clnt_generic_call(ar_client_t *cl, arpcproc_t proc, axdrproc_t xargs,
 	if (!cco) {
 		return ENOMEM;
 	}
-	memset(cco, 0, sizeof(*cco));
 
 	err = ar_clnt_cco_init(cco, cl, priv->cg_auth, &priv->cg_xid_state,
 			       proc, xargs, argsp, inplace, xres, 
@@ -1283,7 +1282,7 @@ ar_clnt_tli_create(ar_ioctx_t ioctx, const char *netid,
 	switch (info->an_semantics) {
 	case AR_SEM_COTS:
 		err = ar_vcd_lookup(ioctx, netid, &drv);
-		 if (err != 0) {
+		if (err != 0) {
 			stat = ARPC_UNKNOWNPROTO;
 			goto error;
 		}
@@ -1651,7 +1650,6 @@ ar_clnt_cco_init(ar_clnt_call_obj_t cco, ar_client_t *cl, ar_auth_t *auth,
 		buf = malloc(size);
 		if (!buf) {
 			AR_AUTH_CLEANUP_MSG(auth, &cco->cco_call);
-			free(cco);
 			return ENOMEM;
 		}
 		memset(buf, 0, size);
