@@ -1439,6 +1439,7 @@ axdr_time_t(axdr_state_t *xdrs, time_t *timep)
 	i64 = *timep;
 	rval = axdr_int64_t(xdrs, &i64);
 	*timep = (time_t) i64;
+	return rval;
 }
    
 
