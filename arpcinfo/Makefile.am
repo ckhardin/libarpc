@@ -1,5 +1,5 @@
 AM_CPPFLAGS = -I$(top_srcdir)/libarpc
-LDADD = ../libarpc/libarpc.la -lssl
+LDADD = ../libarpc/libarpc.la
 
 bin_PROGRAMS = arpcinfo
 arpcinfo_SOURCES = rpcinfo.c
