@@ -86,7 +86,11 @@ struct ucred {
 #define EPARSE EBADMSG
 #endif
 
-#define ar_offsetof(_type, _field) ((unsigned int)&(((_type *)0)->_field))
+#ifdef offsetof
+#define ar_offsetof(_type, _field) offset(_type, _field)
+#else
+#define ar_offsetof(_type, _field) ((uintptr_t)&(((_type *)0)->_field))
+#endif
 
 #ifndef __FBSDID
 #define __FBSDID(_str)
