@@ -633,7 +633,7 @@ h_output(infile, define, extend, outfile)
 	if (extend && tell == ftell(fout)) {
 		(void) unlink(outfilename);
 	} else if (tblflag) {
-		f_print(fout, rpcgen_table_dcl);
+		f_print(fout, "%s", rpcgen_table_dcl);
 	}
 
 	f_print(fout, "\n#ifdef __cplusplus\n");

@@ -592,7 +592,7 @@ pdeclaration(name, dec, tab, separator)
 			break;
 		}
 	}
-	f_print(fout, separator);
+	f_print(fout, "%s", separator);
 }
 
 static int
