@@ -50,6 +50,7 @@ static	char sccsid[] = "@(#)pmap_svc.c 1.23 89/04/05 Copyr 1984 Sun Micro";
 #include <sys/socket.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <libarpc/arpc.h>
 #include "pmap_prot.h"
 #include "rpcb_prot.h"
