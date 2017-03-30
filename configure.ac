@@ -96,7 +96,7 @@ AC_HEADER_TIME
 AC_HEADER_STDBOOL
 AC_HEADER_SYS_WAIT
 AC_CHECK_HEADERS([arpa/inet.h fcntl.h limits.h netdb.h netinet/in.h \
-		  stddef.h stdint.h stdlib.h string.h \
+		  stddef.h stdint.h stdlib.h string.h inttypes.h \
 		  sys/file.h sys/ioctl.h sys/param.h sys/socket.h sys/stat.h sys/time.h \
 		  syslog.h unistd.h time.h ifaddrs.h])
 

@@ -73,14 +73,26 @@ struct ucred {
 #define SO_PEERCRED LOCAL_PEERCRED
 #endif
 
-/* FIXME: generate from autoconf */
-#define RPC_UINT64_FMT  "%lu"
-#define RPC_INT64_FMT   "%ld"
+#ifdef HAVE_INTTYPES_H
+#include "inttypes.h"
+
+#define RPC_UINT64_FMT  "%" PRIu64
+#define RPC_INT64_FMT   "%" PRIi64
+#define RPC_UINT32_FMT  "%" PRIu32
+#define RPC_INT32_FMT   "%" PRIi32
+#define RPC_UINT16_FMT  "%" PRIu16
+#define RPC_INT16_FMT   "%" PRIi16
+#define RPC_ENUM_FMT    "%d"
+#else
+/* just assume 64bit */
+#define RPC_UINT64_FMT  "%llu"
+#define RPC_INT64_FMT   "%lld"
 #define RPC_UINT32_FMT  "%u"
 #define RPC_INT32_FMT   "%d"
 #define RPC_UINT16_FMT  "%hu"
 #define RPC_INT16_FMT   "%hd"
 #define RPC_ENUM_FMT    "%d"
+#endif
 
 #ifndef EPARSE
 #define EPARSE EBADMSG
