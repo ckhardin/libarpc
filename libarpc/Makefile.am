@@ -14,6 +14,7 @@ EXTRA_DIST =
 
 lib_LTLIBRARIES = libarpc.la
 libarpc_la_LDFLAGS = -lpthread
+libarpc_la_LDFLAGS_EXTRA = -version-info 0:6:5
 
 # Only files ported so far
 libarpc_ladir = $(includedir)/libarpc
