@@ -61,14 +61,6 @@ size_t   strlcpy(char *, const char *, size_t);
 size_t  strnlen(const char *s, size_t maxlen);
 #endif
 
-#if defined(HAVE_DECL_CLOCKID_T) && !HAVE_DECL_CLOCKID_T
-typedef int clockid_t;
-#endif
-#if defined(HAVE_DECL_CLOCK_GETTIME) && !HAVE_DECL_CLOCK_GETTIME
-struct timespec;
-extern int clock_gettime(clockid_t clock_id, struct timespec *tp);
-#endif
-
 #ifndef HAVE_STRUCT_UCRED
 struct ucred {
 	int pid;

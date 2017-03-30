@@ -95,7 +95,10 @@ AC_HEADER_STDC
 AC_HEADER_TIME
 AC_HEADER_STDBOOL
 AC_HEADER_SYS_WAIT
-AC_CHECK_HEADERS([arpa/inet.h fcntl.h limits.h netdb.h netinet/in.h stddef.h stdint.h stdlib.h string.h sys/file.h sys/ioctl.h sys/param.h sys/socket.h sys/stat.h sys/time.h syslog.h unistd.h time.h ifaddrs.h])
+AC_CHECK_HEADERS([arpa/inet.h fcntl.h limits.h netdb.h netinet/in.h \
+		  stddef.h stdint.h stdlib.h string.h \
+		  sys/file.h sys/ioctl.h sys/param.h sys/socket.h sys/stat.h sys/time.h \
+		  syslog.h unistd.h time.h ifaddrs.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
@@ -119,7 +122,8 @@ AC_TYPE_SIGNAL
 AC_FUNC_STAT
 AC_FUNC_VPRINTF
 AC_FUNC_WAIT3
-AC_CHECK_FUNCS([strlcpy strlcat alarm bzero clock_gettime dup2 endgrent gethostbyname gethostname gettimeofday inet_ntoa memmove memset socket strcasecmp strchr strdup strerror strpbrk strrchr strtol uname])
+AC_CHECK_FUNCS([strlcpy strlcat strcasecmp strchr strdup strerror strrchr strtol \
+		alarm bzero dup2 endgrent gethostbyname gethostname inet_ntoa memmove memset socket uname])
 
 [
 #include <sys/types.h>
@@ -128,8 +132,23 @@ AC_CHECK_FUNCS([strlcpy strlcat alarm bzero clock_gettime dup2 endgrent gethostb
 #endif
 ]
 
-# Check for declarations
-AC_CHECK_DECLS([clock_gettime, clockid_t])
+AC
+# Check for clock_gettime and CLOCK_MONOTONIC
+AC_CHECK_FUNCS([clock_gettime gettimeofday])
+
+AC_DEFUN([CLOCK_MONOTONIC_SRC], [
+AC_LANG_PROGRAM([[
+#include <time.h>
+clockid_t id = CLOCK_MONOTONIC;
+]])])
+
+#
+# Define HAVE_CLOCK_MONOTONIC=YesPlease if CLOCK_MONOTONIC is available.
+AC_MSG_CHECKING([for CLOCK_MONOTONIC])
+AC_COMPILE_IFELSE([CLOCK_MONOTONIC_SRC],
+	[AC_MSG_RESULT([yes])
+	 AC_DEFINE(HAVE_CLOCK_MONOTONIC, 1, [Monotonic clock])],
+	[AC_MSG_RESULT([no])])
 
 # Checks for structure variants
 AC_CHECK_MEMBERS([struct sockaddr_storage.ss_len,

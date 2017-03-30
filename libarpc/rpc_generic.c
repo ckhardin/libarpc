@@ -689,7 +689,7 @@ ar_gettime(struct timespec *res)
 		return -1;
 	}
 
-#ifdef HAVE_CLOCK_MONOTONIC
+#if defined(HAVE_CLOCK_GETTIME) && defined(HAVE_CLOCK_MONOTONIC)
 	sts = clock_gettime(CLOCK_MONOTONIC, res);
 	if (sts == 0) {
 		return sts;
